@@ -13,6 +13,7 @@ All notable changes are recorded here, one section per milestone tag.
 - Shared xG model (`metrics/xg.py`): logistic on distance and visible goal angle, header penalty, penalties fixed at 0.76. The simulator samples shot outcomes from it.
 - 1 Hz tracking frames (`sim/tracking.py`) derived from the events and the shared team-shape model: ball flight timed from pass, shot and carry speeds; players accelerate at up to 3 m/s² toward shape targets, event locations or the ball; top speed from pace, reported speed from movement between frames and capped at 36 km/h; counter-attack surges; substitutes enter from the halfway line and sent-off players leave.
 - `write_match` writes `metadata.json`, `events.jsonl` and `frames.jsonl`; same seed gives byte-identical files.
+- Scenarios in `data/scenarios/*.yaml` (`balanced`, `late_comeback`, `red_card_press`): club pairing, starting style overrides and scripted injections (`red_card` and `force_goal` at a time, style `modify` from a time). `matchlens sim --scenario … --seed …` and `make sim`. New dependency: PyYAML, because scenarios are hand-authored YAML files.
 
 ## [m0] — Scaffold
 

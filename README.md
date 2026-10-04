@@ -63,6 +63,23 @@ Selecting a cloud mode requires its endpoint settings; startup fails fast if the
 uv run --directory backend matchlens info   # print the active modes
 ```
 
+## Simulating a match
+
+The simulator plays a fictional Meridian League fixture from a scenario in [data/scenarios/](data/scenarios/) and writes `metadata.json`, `events.jsonl` and `frames.jsonl` (1 Hz tracking) to `data/samples/<match_id>/`.
+
+```bash
+make sim SCENARIO=late_comeback SEED=42
+# or: uv run --directory backend matchlens sim --scenario late_comeback --seed 42 [--events-only]
+```
+
+| Scenario | Fixture | What happens |
+| --- | --- | --- |
+| `balanced` | Kestrel Bay Athletic v Ashmoor Rovers | Possession against pressing, nothing scripted |
+| `late_comeback` | Vellmont City v Kestrel Bay Athletic | Visitors lead two-nil; hosts press from 60' and score three late |
+| `red_card_press` | Port Halden FC v Kestrel Bay Athletic | Away red card at 55'; hosts raise their press from 60' |
+
+The same scenario and seed always produce byte-identical files. `DATA_DIR` overrides where scenarios are read from and samples are written to (default: the repository's `data/`).
+
 ## Data contracts
 
 Every payload that crosses a boundary (events, tracking frames, metric snapshots, insights, cues, recaps, traces) is a Pydantic model in `backend/src/matchlens/models/`.
