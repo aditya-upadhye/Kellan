@@ -33,6 +33,7 @@ cp .env.example .env
 make setup   # backend and frontend dependencies, pre-commit hooks
 make lint    # ruff, pyright, eslint, tsc
 make test    # pytest with coverage, vitest
+make backend-test-fast   # quick loop: skips the slow simulation tests
 ```
 
 Run `make help` to list every target.

@@ -2,6 +2,24 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-014 · 2026-10-04 · Pyright `extraPaths`
+
+**Adding `extraPaths` broke resolution of the project's own package**
+
+- **What happened:** Setting `extraPaths = ["tests"]` (so tests can import a shared `support` module) replaced pyright's automatic `src` search path. Every `matchlens` import then resolved to the installed package without `py.typed`: 162 "Stub file not found" errors.
+- **Impact:** Type checking failed across all tests.
+- **Resolution:** `extraPaths = ["src", "tests"]`.
+- **Status:** Resolved
+
+## F-013 · 2026-10-04 · Coverage and performance tests
+
+**Coverage tracing made the 5-second generation test fail**
+
+- **What happened:** A full match with tracking takes ~1.7–2 s, but under `pytest --cov` (branch coverage) it took 5.8 s and the spec's "under 5 s" test failed. The full suite went from ~5 s to ~85 s.
+- **Impact:** A performance assertion inside a traced process measures the tracer, not the code.
+- **Resolution:** `matchlens sim` now reports its generation time; the test runs it in a subprocess (not traced) and reads the number. Slow simulation tests carry a `slow` marker: CI runs everything, `make backend-test-fast` skips them (9 s).
+- **Status:** Resolved
+
 ## F-012 · 2026-10-04 · Simulator calibration
 
 **Realism targets pull against each other**

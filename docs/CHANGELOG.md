@@ -2,7 +2,7 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [m1] — Fictional world and simulator (in progress)
+## [m1] — Fictional world and simulator
 
 ### Added
 
@@ -14,6 +14,7 @@ All notable changes are recorded here, one section per milestone tag.
 - 1 Hz tracking frames (`sim/tracking.py`) derived from the events and the shared team-shape model: ball flight timed from pass, shot and carry speeds; players accelerate at up to 3 m/s² toward shape targets, event locations or the ball; top speed from pace, reported speed from movement between frames and capped at 36 km/h; counter-attack surges; substitutes enter from the halfway line and sent-off players leave.
 - `write_match` writes `metadata.json`, `events.jsonl` and `frames.jsonl`; same seed gives byte-identical files.
 - Scenarios in `data/scenarios/*.yaml` (`balanced`, `late_comeback`, `red_card_press`): club pairing, starting style overrides and scripted injections (`red_card` and `force_goal` at a time, style `modify` from a time). `matchlens sim --scenario … --seed …` and `make sim`. New dependency: PyYAML, because scenarios are hand-authored YAML files.
+- Simulator tests: byte-identical output for the same seed and scenario (also across processes with different hash seeds), realism targets over 50 seeds of `balanced`, Hypothesis property tests (sequence, clock, bounds, possession, speed cap) and a 5 s generation budget measured outside coverage. `make backend-test-fast` skips the `slow` tests; CI runs everything with an 80% coverage floor.
 
 ## [m0] — Scaffold
 
