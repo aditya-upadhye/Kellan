@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-008 · 2026-10-04 · GitHub Actions
+
+**`astral-sh/setup-uv@v10` doesn't exist**
+
+- **What happened:** The first CI run failed in "Prepare all required actions": `Unable to resolve action astral-sh/setup-uv@v10`. Since v8.0.0 (its first immutable release), setup-uv no longer publishes major or minor tags, only exact ones like `v10.2.0`, as a defence against tj-actions-style tag hijacking. The local container check couldn't catch this because it ran the Make targets, not the workflow.
+- **Impact:** The Backend job never started; M0 couldn't be tagged.
+- **Resolution:** Every action is pinned to a full commit SHA with a version comment (`@c18668a… # v10.2.0`); Dependabot updates both. The workflow also passes `actionlint`.
+- **Status:** Resolved
+
 ## F-007 · 2026-10-01 · GitHub
 
 **No secret scanning on a private repository**
