@@ -8,7 +8,7 @@ NPM := npm --prefix $(FRONTEND_DIR)
 .PHONY: help setup backend-setup frontend-setup \
 	lint backend-lint frontend-lint format \
 	test backend-test frontend-test test-azure \
-	build audit backend-audit frontend-audit
+	build audit backend-audit frontend-audit secrets-scan
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,3 +58,6 @@ backend-audit:
 
 frontend-audit:
 	$(NPM) audit --audit-level=high
+
+secrets-scan: ## Scan the full git history for secrets with gitleaks
+	gitleaks git --redact --verbose
