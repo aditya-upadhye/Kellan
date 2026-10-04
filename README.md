@@ -62,7 +62,3 @@ Selecting a cloud mode requires its endpoint settings; startup fails fast if the
 ```bash
 uv run --directory backend matchlens info   # print the active modes
 ```
-
-## License
-
-[MIT](LICENSE)
