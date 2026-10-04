@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-009 · 2026-10-04 · Dependabot / TypeScript
+
+**Dependabot proposed TypeScript 7, which typescript-eslint can't use yet**
+
+- **What happened:** The first grouped Dependabot PR bumped `typescript` 6.0.3 → 7.0.2 and `@types/node` 24 → 26. TypeScript 7 is the Go-native compiler and only exposes `unstable/*` APIs; `typescript-eslint` 8.71 requires `typescript >=4.8.4 <6.1.0`. Node 26 typings don't match the Node 22 runtime.
+- **Impact:** Merging would have broken frontend linting and allowed Node APIs that don't exist at runtime.
+- **Resolution:** Dependabot ignores major updates for `typescript` and `@types/node`; the PR is closed. Revisit TypeScript 7 when typescript-eslint supports it.
+- **Status:** Resolved
+
 ## F-008 · 2026-10-04 · GitHub Actions
 
 **`astral-sh/setup-uv@v10` doesn't exist**

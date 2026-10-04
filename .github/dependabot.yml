@@ -12,6 +12,13 @@ updates:
     groups:
       frontend-dev:
         dependency-type: development
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # matches the Node 22 runtime in .nvmrc
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
