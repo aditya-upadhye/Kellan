@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from matchlens.config import get_settings
 from matchlens.models.clock import MS_PER_MINUTE
 from matchlens.models.events import (
     MATCH_EVENT_ADAPTER,
@@ -20,31 +21,22 @@ from matchlens.models.events import (
     ShotEvent,
     SubstitutionEvent,
 )
-from matchlens.sim.match import SimulatedMatch, build_match_metadata, simulate_match
+from matchlens.sim.match import SimulatedMatch, simulate_scenario
 from matchlens.sim.output import EVENTS_FILE, METADATA_FILE, write_match
+from matchlens.sim.scenarios import load_scenario
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 if TYPE_CHECKING:
     from matchlens.models.base import TeamSide
 
-FIXTURES = [
-    ("kestrel-bay", "ashmoor-rovers", 1),
-    ("kestrel-bay", "ashmoor-rovers", 2),
-    ("port-halden", "vellmont-city", 3),
-]
+FIXTURES = [("balanced", 1), ("balanced", 2), ("late_comeback", 3), ("red_card_press", 4)]
 
 
-@pytest.fixture(scope="module", params=FIXTURES, ids=lambda fixture: f"{fixture[0]}-s{fixture[2]}")
+@pytest.fixture(scope="module", params=FIXTURES, ids=lambda fixture: f"{fixture[0]}-s{fixture[1]}")
 def match(request: pytest.FixtureRequest) -> SimulatedMatch:
-    home_id, away_id, seed = request.param
-    metadata = build_match_metadata(
-        MERIDIAN_LEAGUE,
-        MERIDIAN_LEAGUE.club(home_id),
-        MERIDIAN_LEAGUE.club(away_id),
-        scenario="invariants",
-        seed=seed,
-    )
-    return simulate_match(metadata, with_tracking=False)
+    name, seed = request.param
+    scenario = load_scenario(name, get_settings().scenarios_dir)
+    return simulate_scenario(MERIDIAN_LEAGUE, scenario, seed, with_tracking=False)
 
 
 def test_sequence_numbers_count_up_from_one(match: SimulatedMatch) -> None:

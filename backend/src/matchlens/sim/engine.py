@@ -1,4 +1,5 @@
 import math
+from collections.abc import Sequence
 from random import Random
 from typing import Literal
 
@@ -42,6 +43,7 @@ from matchlens.models.events import (
 from matchlens.models.match import MatchMetadata
 from matchlens.models.pitch import PITCH_LENGTH_M, PITCH_WIDTH_M
 from matchlens.sim.event_log import EventLog
+from matchlens.sim.scenarios import Injection, StyleShift
 from matchlens.sim.shape import team_shape
 from matchlens.sim.space import (
     CENTRE_LATERAL_M,
@@ -75,11 +77,16 @@ BOX_TARGET_DEPTH_M = (94.0, 100.0)
 BOX_TARGET_LATERAL_M = (28.0, 40.0)
 CROSSING_CHANNEL_M = 14.0
 BYLINE_ZONE_M = 12.0
+FORCED_MIN_FORWARD_GAIN_M = 3.0
 
 
 class MatchEngine:
     def __init__(
-        self, metadata: MatchMetadata, rng: Random, tuning: EngineTuning = DEFAULT_TUNING
+        self,
+        metadata: MatchMetadata,
+        rng: Random,
+        tuning: EngineTuning = DEFAULT_TUNING,
+        script: Sequence[Injection] = (),
     ) -> None:
         self._rng = rng
         self._tuning = tuning
@@ -95,6 +102,10 @@ class MatchEngine:
         self._transition_actions = 0
         self._assist_pass: PassEvent | None = None
         self._set_piece: SetPiece | None = None
+        self._pending_script = sorted(
+            script, key=lambda injection: (injection.period, injection.due_ms)
+        )
+        self._forced_attack: TeamSide | None = None
 
     def run(self) -> list[MatchEvent]:
         first_kickoff = self._rng.choice(SIDES)
@@ -109,6 +120,7 @@ class MatchEngine:
             self._plan_substitutions()
         self._kick_off(kickoff_side)
         while self._log.ms < period_end_ms:
+            self._run_due_script()
             self._play_action()
         self._log.emit(PeriodEndEvent if period == 1 else MatchEndEvent)
 
@@ -117,9 +129,10 @@ class MatchEngine:
             set_piece, self._set_piece = self._set_piece, None
             self._take_set_piece(set_piece)
             return
-        if self._apply_defensive_pressure():
+        forced = self._is_forced_attack()
+        if not forced and self._apply_defensive_pressure():
             return
-        match self._choose_action():
+        match self._choose_forced_action() if forced else self._choose_action():
             case "shot":
                 self._shoot(situation="open_play")
             case "carry":
@@ -240,6 +253,11 @@ class MatchEngine:
             self._change_possession(defending_side, defender, self._ball, transition=True)
 
     def _pass(self) -> None:
+        forward_receiver = self._forward_receiver() if self._is_forced_attack() else None
+        if forward_receiver is not None:
+            target = self._shape(self._possession)[forward_receiver.player_id]
+            self._deliver_pass(forward_receiver, target, height="ground")
+            return
         receiver, target = self._choose_receiver()
         self._deliver_pass(receiver, target, height=self._pass_height(target))
 
@@ -339,7 +357,9 @@ class MatchEngine:
 
         outcome: PassOutcome = "complete"
         end = target
-        if self._rng.random() >= self._pass_success_probability(length, height, target):
+        if not self._is_forced_attack() and self._rng.random() >= self._pass_success_probability(
+            length, height, target
+        ):
             failure = self._rng.random()
             offside_possible = (
                 forward_gain > 5 and self._in_frame(target, side).x > FINAL_THIRD_START_M
@@ -435,7 +455,9 @@ class MatchEngine:
         if self._transition_actions > 0:
             distance *= 1 + tuning.transition_carry_boost
         heading = self._rng.gauss(0, tuning.carry_heading_sd_rad)
-        if frame_ball.x > FINAL_THIRD_START_M:
+        if self._is_forced_attack():
+            heading = math.atan2(CENTRE_LATERAL_M - frame_ball.y, PITCH_LENGTH_M - frame_ball.x)
+        elif frame_ball.x > FINAL_THIRD_START_M:
             distance *= tuning.final_third_carry_factor
             heading += (CENTRE_LATERAL_M - frame_ball.y) / 120
         frame_end = Spot(
@@ -461,7 +483,7 @@ class MatchEngine:
         )
         if in_penalty_area(self._in_frame(end, side)):
             challenge_probability *= tuning.penalty_area_challenge_factor
-        if self._rng.random() < challenge_probability:
+        if not self._is_forced_attack() and self._rng.random() < challenge_probability:
             self._defensive_challenge()
 
     def _dribble(self) -> None:
@@ -514,7 +536,9 @@ class MatchEngine:
             - tuning.keeper_weight * (keeper.player.traits.defending - 80) / 20
             - tuning.pressured_shot_penalty * self._pressure
         )
-        outcome = self._shot_outcome(goal_probability, situation)
+        outcome: ShotOutcome = (
+            "goal" if self._is_forced_attack() else self._shot_outcome(goal_probability, situation)
+        )
         assist = self._assist_pass if self._assisted_by_last_pass(shooter) else None
         end_spot = self._shot_end_spot(outcome)
 
@@ -537,6 +561,7 @@ class MatchEngine:
 
         match outcome:
             case "goal":
+                self._forced_attack = None
                 self._log.emit(
                     GoalEvent,
                     team_id=side,
@@ -830,3 +855,96 @@ class MatchEngine:
                 player_in_id=player_in.player_id, player_out_id=player_out.player_id
             ),
         )
+
+    def _is_forced_attack(self) -> bool:
+        return self._forced_attack == self._possession
+
+    def _choose_forced_action(self) -> Action:
+        if self._carrier.is_goalkeeper:
+            return "pass"
+        if self._open_play_xg() >= self._tuning.forced_attack_shot_xg:
+            return "shot"
+        return "pass" if self._forward_receiver() is not None else "carry"
+
+    def _forward_receiver(self) -> PlayerState | None:
+        tuning = self._tuning
+        side = self._possession
+        shape = self._shape(side)
+        ball_depth = self._in_frame(self._ball, side).x
+        best: PlayerState | None = None
+        best_gain = FORCED_MIN_FORWARD_GAIN_M
+        for teammate in self._teams[side].outfield():
+            spot = shape[teammate.player_id]
+            distance = self._ball.distance_to(spot)
+            in_range = tuning.pass_min_length_m <= distance <= tuning.forced_pass_max_length_m
+            if teammate is self._carrier or not in_range:
+                continue
+            gain = self._in_frame(spot, side).x - ball_depth
+            if gain > best_gain:
+                best, best_gain = teammate, gain
+        return best
+
+    def _run_due_script(self) -> None:
+        while (
+            self._pending_script
+            and self._set_piece is None
+            and self._is_due(self._pending_script[0])
+        ):
+            injection = self._pending_script.pop(0)
+            if isinstance(injection, StyleShift):
+                self._shift_style(injection)
+            elif injection.action == "red_card":
+                self._send_off(injection.team)
+            else:
+                self._start_forced_attack(injection.team)
+
+    def _is_due(self, injection: Injection) -> bool:
+        return (injection.period, injection.due_ms) <= (self._log.period, self._log.ms)
+
+    def _shift_style(self, shift: StyleShift) -> None:
+        for side in SIDES:
+            changes = shift.changes_for(side)
+            if not changes:
+                continue
+            team_state = self._teams[side]
+            style = team_state.team.style
+            shifted = {
+                trait: min(max(getattr(style, trait) + delta, 0.0), 1.0)
+                for trait, delta in changes.items()
+            }
+            team_state.team = team_state.team.model_copy(
+                update={"style": style.model_copy(update=shifted)}
+            )
+
+    def _send_off(self, side: TeamSide) -> None:
+        offender = self._nearest(side, self._ball, outfield_only=True)
+        victim = self._nearest(opponent(side), self._ball, outfield_only=True)
+        self._log.emit(
+            FoulEvent,
+            team_id=side,
+            player_id=offender.player_id,
+            location=to_point(self._ball),
+            attrs=FoulAttrs(fouled_player_id=victim.player_id),
+        )
+        self._log.emit(
+            CardEvent,
+            team_id=side,
+            player_id=offender.player_id,
+            outcome="red",
+            attrs=CardAttrs(reason="serious foul play"),
+        )
+        offender.sent_off = True
+        self._award_free_kick(opponent(side), self._ball, preferred_taker=victim)
+
+    def _start_forced_attack(self, side: TeamSide) -> None:
+        self._forced_attack = side
+        if self._possession == side:
+            return
+        interceptor = self._nearest(side, self._ball, outfield_only=True)
+        self._log.emit(
+            InterceptionEvent,
+            team_id=side,
+            player_id=interceptor.player_id,
+            location=to_point(self._ball),
+        )
+        self._change_possession(side, interceptor, self._ball, transition=True)

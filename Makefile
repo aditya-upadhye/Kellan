@@ -2,13 +2,15 @@ BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 UV_RUN := uv run --directory $(BACKEND_DIR)
 NPM := npm --prefix $(FRONTEND_DIR)
+SCENARIO ?= balanced
+SEED ?= 42
 
 .DEFAULT_GOAL := help
 
 .PHONY: help setup backend-setup frontend-setup \
 	lint backend-lint frontend-lint format \
 	test backend-test frontend-test test-azure \
-	build audit backend-audit frontend-audit secrets-scan schemas
+	build audit backend-audit frontend-audit secrets-scan schemas sim
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -47,6 +49,9 @@ frontend-test: ## Vitest
 
 test-azure: ## Run tests against real Azure resources
 	$(UV_RUN) pytest -m azure
+
+sim: ## Simulate a scenario into data/samples (SCENARIO=balanced SEED=42)
+	$(UV_RUN) matchlens sim --scenario $(SCENARIO) --seed $(SEED)
 
 schemas: ## Regenerate JSON Schemas for the data contracts
 	$(UV_RUN) matchlens schemas export --output-dir ../docs/schemas

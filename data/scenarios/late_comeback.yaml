@@ -1,0 +1,14 @@
+name: late_comeback
+description: A cagey game the visitors lead two-nil, until the hosts go all-in on pressing from the hour mark and turn it around late.
+home: vellmont-city
+away: kestrel-bay
+style_overrides:
+  home: {directness: 0.3}
+  away: {directness: 0.2}
+injections:
+  - {period: 1, at: "27:00", action: force_goal, team: away}
+  - {period: 2, at: "04:00", action: force_goal, team: away}
+  - {period: 2, from: "15:00", modify: {home.press: 0.35, home.directness: 0.45, away.possession: -0.2}}
+  - {period: 2, at: "33:00", action: force_goal, team: home}
+  - {period: 2, at: "39:00", action: force_goal, team: home}
+  - {period: 2, at: "43:30", action: force_goal, team: home}

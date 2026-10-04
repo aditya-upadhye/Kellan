@@ -85,6 +85,8 @@ class EngineTuning:
     direct_free_kick_max_distance_m: float = 30.0
     free_kick_cross_share: float = 0.5
     corner_header_share: float = 0.5
+    forced_attack_shot_xg: float = 0.12
+    forced_pass_max_length_m: float = 40.0
 
     substitutions_per_team: tuple[int, int] = (3, 5)
     substitution_window_ms: MsRange = (600_000, 2_100_000)
