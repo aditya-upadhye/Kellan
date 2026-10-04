@@ -9,6 +9,9 @@ All notable changes are recorded here, one section per milestone tag.
 - Data contracts as frozen, strict Pydantic models: match metadata, match clock, events (a discriminated union with typed outcome and attrs per event type), tracking frames, metric snapshots, moments, insights, claims, viewer profiles, overlay cues, recaps, agent traces and the WebSocket envelope.
 - `matchlens schemas export` and `make schemas`: JSON Schema (draft 2020-12) for every contract in `docs/schemas/`, with a test that fails when the committed schemas drift.
 - Fictional Meridian League: 4 clubs (possession, pressing, direct and balanced styles; 4-3-3, 4-2-3-1, 4-4-2, 4-1-4-1) with 18 invented players each. `Club.as_team(side)` builds the side-specific `Team` contract.
+- Possession-chain match simulator (`sim/`): one seeded `random.Random`, formation-anchored team shapes with an offside line, pressure, passes, carries, dribbles, shots, tackles, interceptions, fouls, cards, penalties, corners, free kicks, throw-ins, goal kicks, 3–5 substitutions per team and 1–5 minutes of added time per half. All probabilities live in `EngineTuning`.
+- Shared xG model (`metrics/xg.py`): logistic on distance and visible goal angle, header penalty, penalties fixed at 0.76. The simulator samples shot outcomes from it.
+- `write_match` writes `metadata.json` and `events.jsonl`; same seed gives byte-identical files.
 
 ## [m0] — Scaffold
 

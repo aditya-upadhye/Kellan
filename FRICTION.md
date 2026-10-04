@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-012 · 2026-10-04 · Simulator calibration
+
+**Realism targets pull against each other**
+
+- **What happened:** Calibrating the simulator against the spec's targets (passes, accuracy, shots, goals, fouls, yellows, possession) took ten measured rounds. Raising fouls to 15–30 produced 1.4 penalties a match, which inflated xG to 0.17 a shot; direct teams scored 4–5 goals because strikers waited in the box ahead of the ball; tightening defence then dropped scoring to 1.4.
+- **Impact:** A single global constant change moved several stats at once, and one pairing could pass while others failed.
+- **Resolution:** A scratch calibration script over 20–50 seeds and all 12 club pairings, and fixes that model real football instead of tuning the symptom: fewer fouls inside the box (all of them penalties), more careful booked players, an offside line capping attackers' depth, denser defending in the final third, and shot choice weighted by xG^0.85. The balanced pairing now sits mid-range on every target.
+- **Status:** Resolved
+
 ## F-011 · 2026-10-04 · Pydantic JSON Schema → TypeScript
 
 **Default Pydantic schemas generate poor TypeScript**
