@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M0 — scaffold. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1 — fictional world and simulator, in progress. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -62,3 +62,14 @@ Selecting a cloud mode requires its endpoint settings; startup fails fast if the
 ```bash
 uv run --directory backend matchlens info   # print the active modes
 ```
+
+## Data contracts
+
+Every payload that crosses a boundary (events, tracking frames, metric snapshots, insights, cues, recaps, traces) is a Pydantic model in `backend/src/matchlens/models/`.
+The JSON Schemas in [docs/schemas/](docs/schemas/) are generated from those models; the frontend derives its TypeScript types from them.
+
+```bash
+make schemas   # or: uv run --directory backend matchlens schemas export --output-dir ../docs/schemas
+```
+
+A test fails if the committed schemas drift from the models.

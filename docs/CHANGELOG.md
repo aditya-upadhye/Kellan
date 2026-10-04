@@ -2,6 +2,13 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
+## [m1] — Fictional world and simulator (in progress)
+
+### Added
+
+- Data contracts as frozen, strict Pydantic models: match metadata, match clock, events (a discriminated union with typed outcome and attrs per event type), tracking frames, metric snapshots, moments, insights, claims, viewer profiles, overlay cues, recaps, agent traces and the WebSocket envelope.
+- `matchlens schemas export` and `make schemas`: JSON Schema (draft 2020-12) for every contract in `docs/schemas/`, with a test that fails when the committed schemas drift.
+
 ## [m0] — Scaffold
 
 ### Added
