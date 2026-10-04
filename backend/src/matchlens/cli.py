@@ -1,5 +1,6 @@
 import argparse
 import sys
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -36,14 +37,17 @@ def run_sim(args: argparse.Namespace) -> int:
     except UnknownScenarioError as error:
         print(error, file=sys.stderr)
         return 2
+    started = time.perf_counter()
     match = simulate_scenario(
         MERIDIAN_LEAGUE, scenario, args.seed, with_tracking=not args.events_only
     )
+    elapsed_s = time.perf_counter() - started
     match_dir = write_match(match, args.output_dir or settings.samples_dir)
     metadata, score = match.metadata, match.score
     print(
         f"{metadata.match_id}: {metadata.home.name} {score['home']}-{score['away']} "
-        f"{metadata.away.name} | {len(match.events)} events, {len(match.frames)} frames"
+        f"{metadata.away.name} | {len(match.events)} events, {len(match.frames)} frames "
+        f"generated in {elapsed_s:.2f} s"
     )
     print(f"written to {match_dir}")
     return 0
