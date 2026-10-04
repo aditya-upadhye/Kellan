@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ViewerProfile",
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "label": {
+      "maxLength": 40,
+      "minLength": 1,
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "analyst",
+        "casual",
+        "player_focus"
+      ],
+      "type": "string"
+    },
+    "language": {
+      "enum": [
+        "en",
+        "es"
+      ],
+      "type": "string"
+    },
+    "favorite_team_id": {
+      "anyOf": [
+        {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "favorite_player_id": {
+      "anyOf": [
+        {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "focus_metric": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "verbosity": {
+      "enum": [
+        "short",
+        "standard",
+        "detailed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile_id",
+    "label",
+    "mode",
+    "language",
+    "favorite_team_id",
+    "favorite_player_id",
+    "focus_metric",
+    "verbosity"
+  ],
+  "type": "object"
+}

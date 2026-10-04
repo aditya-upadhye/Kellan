@@ -59,7 +59,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "-m", "not azure"]
+addopts = ["-ra", "--strict-markers", "--import-mode=importlib", "-m", "not azure"]
 markers = [
     "azure: hits real Azure resources; run manually with `pytest -m azure`",
 ]

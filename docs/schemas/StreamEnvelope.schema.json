@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StreamEnvelope",
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "event",
+        "frame",
+        "metrics",
+        "cue",
+        "trace",
+        "recap",
+        "status"
+      ],
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "kind",
+    "match_id",
+    "data"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OverlayCue",
+  "$defs": {
+    "CheckerResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "attempts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "passed",
+        "attempts",
+        "version"
+      ],
+      "title": "CheckerResult",
+      "type": "object"
+    },
+    "CueProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "metric_ids": {
+          "items": {
+            "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checker": {
+          "$ref": "#/$defs/CheckerResult"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "metric_ids",
+        "checker",
+        "model_ids"
+      ],
+      "title": "CueProvenance",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "MatchClock": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "enum": [
+            1,
+            2
+          ],
+          "type": "integer"
+        },
+        "ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "ms"
+      ],
+      "title": "MatchClock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cue_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "insight_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "trigger_seq": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "clock": {
+      "$ref": "#/$defs/MatchClock"
+    },
+    "template": {
+      "enum": [
+        "stat_bar",
+        "player_tag",
+        "moment_card",
+        "momentum_graph",
+        "speed_badge",
+        "recap_panel"
+      ],
+      "type": "string"
+    },
+    "slot": {
+      "enum": [
+        "lower_third",
+        "top_right",
+        "side_panel",
+        "full_screen"
+      ],
+      "type": "string"
+    },
+    "priority": {
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "start_delay_ms": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "duration_ms": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "expires_at": {
+      "$ref": "#/$defs/MatchClock"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "language": {
+      "enum": [
+        "en",
+        "es"
+      ],
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "provenance": {
+      "$ref": "#/$defs/CueProvenance"
+    }
+  },
+  "required": [
+    "cue_id",
+    "match_id",
+    "profile_id",
+    "insight_id",
+    "trigger_seq",
+    "clock",
+    "template",
+    "slot",
+    "priority",
+    "start_delay_ms",
+    "duration_ms",
+    "expires_at",
+    "headline",
+    "body",
+    "language",
+    "data",
+    "provenance"
+  ],
+  "type": "object"
+}

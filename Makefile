@@ -8,7 +8,7 @@ NPM := npm --prefix $(FRONTEND_DIR)
 .PHONY: help setup backend-setup frontend-setup \
 	lint backend-lint frontend-lint format \
 	test backend-test frontend-test test-azure \
-	build audit backend-audit frontend-audit secrets-scan
+	build audit backend-audit frontend-audit secrets-scan schemas
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -47,6 +47,9 @@ frontend-test: ## Vitest
 
 test-azure: ## Run tests against real Azure resources
 	$(UV_RUN) pytest -m azure
+
+schemas: ## Regenerate JSON Schemas for the data contracts
+	$(UV_RUN) matchlens schemas export --output-dir ../docs/schemas
 
 build: ## Production build of the frontend
 	$(NPM) run build
