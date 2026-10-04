@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Moment",
+  "$defs": {
+    "MatchClock": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "enum": [
+            1,
+            2
+          ],
+          "type": "integer"
+        },
+        "ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "ms"
+      ],
+      "title": "MatchClock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "moment_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "goal",
+        "big_chance",
+        "card",
+        "momentum_swing",
+        "press_shift",
+        "control_shift",
+        "milestone",
+        "speed_alert",
+        "player_spotlight"
+      ],
+      "type": "string"
+    },
+    "seq_start": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "seq_end": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "clock": {
+      "$ref": "#/$defs/MatchClock"
+    },
+    "rule_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "significance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "evidence_metric_ids": {
+      "items": {
+        "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "subject_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "source": {
+      "enum": [
+        "rule",
+        "agent",
+        "fallback"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "moment_id",
+    "match_id",
+    "type",
+    "seq_start",
+    "seq_end",
+    "clock",
+    "rule_score",
+    "significance",
+    "evidence_metric_ids",
+    "subject_ids",
+    "source"
+  ],
+  "type": "object"
+}

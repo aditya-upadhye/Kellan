@@ -1,0 +1,7 @@
+name: red_card_press
+description: An away player is sent off early in the second half and the hosts turn up their press against ten men.
+home: port-halden
+away: kestrel-bay
+injections:
+  - {period: 2, at: "10:00", action: red_card, team: away}
+  - {period: 2, from: "15:00", modify: {home.press: 0.3}}

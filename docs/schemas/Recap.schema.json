@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Recap",
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "text_span": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "metric_id": {
+          "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "as_of_seq": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text_span",
+        "metric_id",
+        "value",
+        "as_of_seq"
+      ],
+      "title": "Claim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "recap_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "profile_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "half",
+        "full"
+      ],
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "paragraphs": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "key_moment_ids": {
+      "items": {
+        "pattern": "^[A-Za-z0-9_-]{1,64}$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "verified",
+        "fallback"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "recap_id",
+    "match_id",
+    "profile_id",
+    "kind",
+    "title",
+    "paragraphs",
+    "key_moment_ids",
+    "claims",
+    "status"
+  ],
+  "type": "object"
+}

@@ -1,9 +1,12 @@
 from enum import StrEnum
 from functools import lru_cache
+from pathlib import Path
 from typing import Self
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class LLMMode(StrEnum):
@@ -24,7 +27,7 @@ class StoreMode(StrEnum):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=("../.env", ".env"),
+        env_file=REPO_ROOT / ".env",
         env_file_encoding="utf-8",
         env_ignore_empty=True,
         extra="ignore",
@@ -46,6 +49,16 @@ class Settings(BaseSettings):
 
     max_concurrent_matches: int = Field(default=2, ge=1)
     max_llm_calls_per_match: int = Field(default=400, ge=0)
+
+    data_dir: Path = REPO_ROOT / "data"
+
+    @property
+    def scenarios_dir(self) -> Path:
+        return self.data_dir / "scenarios"
+
+    @property
+    def samples_dir(self) -> Path:
+        return self.data_dir / "samples"
 
     @model_validator(mode="after")
     def require_settings_for_cloud_modes(self) -> Self:

@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MatchMetadata",
+  "$defs": {
+    "Player": {
+      "additionalProperties": false,
+      "properties": {
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "number": {
+          "maximum": 99,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "position": {
+          "enum": [
+            "GK",
+            "DF",
+            "MF",
+            "FW"
+          ],
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "GK",
+            "CB",
+            "FB",
+            "DM",
+            "CM",
+            "AM",
+            "W",
+            "ST"
+          ],
+          "type": "string"
+        },
+        "traits": {
+          "$ref": "#/$defs/PlayerTraits"
+        },
+        "starter": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "player_id",
+        "name",
+        "number",
+        "position",
+        "role",
+        "traits",
+        "starter"
+      ],
+      "title": "Player",
+      "type": "object"
+    },
+    "PlayerTraits": {
+      "additionalProperties": false,
+      "properties": {
+        "pace": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "passing": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "finishing": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "defending": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "pace",
+        "passing",
+        "finishing",
+        "defending"
+      ],
+      "title": "PlayerTraits",
+      "type": "object"
+    },
+    "Team": {
+      "additionalProperties": false,
+      "properties": {
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        },
+        "short_name": {
+          "pattern": "^[A-Z]{3}$",
+          "type": "string"
+        },
+        "colors": {
+          "$ref": "#/$defs/TeamColors"
+        },
+        "formation": {
+          "pattern": "^[1-9](-[1-9]){2,3}$",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/TeamStyle"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/Player"
+          },
+          "maxItems": 18,
+          "minItems": 18,
+          "type": "array"
+        }
+      },
+      "required": [
+        "team_id",
+        "name",
+        "short_name",
+        "colors",
+        "formation",
+        "style",
+        "players"
+      ],
+      "title": "Team",
+      "type": "object"
+    },
+    "TeamColors": {
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        },
+        "secondary": {
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary",
+        "secondary"
+      ],
+      "title": "TeamColors",
+      "type": "object"
+    },
+    "TeamStyle": {
+      "additionalProperties": false,
+      "properties": {
+        "possession": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "press": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "directness": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "possession",
+        "press",
+        "directness"
+      ],
+      "title": "TeamStyle",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "competition": {
+      "maxLength": 60,
+      "minLength": 1,
+      "type": "string"
+    },
+    "venue": {
+      "maxLength": 60,
+      "minLength": 1,
+      "type": "string"
+    },
+    "home": {
+      "$ref": "#/$defs/Team"
+    },
+    "away": {
+      "$ref": "#/$defs/Team"
+    },
+    "scenario": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "seed": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "match_id",
+    "competition",
+    "venue",
+    "home",
+    "away",
+    "scenario",
+    "seed"
+  ],
+  "type": "object"
+}

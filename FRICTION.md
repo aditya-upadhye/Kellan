@@ -2,6 +2,51 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-014 · 2026-10-04 · Pyright `extraPaths`
+
+**Adding `extraPaths` broke resolution of the project's own package**
+
+- **What happened:** Setting `extraPaths = ["tests"]` (so tests can import a shared `support` module) replaced pyright's automatic `src` search path. Every `matchlens` import then resolved to the installed package without `py.typed`: 162 "Stub file not found" errors.
+- **Impact:** Type checking failed across all tests.
+- **Resolution:** `extraPaths = ["src", "tests"]`.
+- **Status:** Resolved
+
+## F-013 · 2026-10-04 · Coverage and performance tests
+
+**Coverage tracing made the 5-second generation test fail**
+
+- **What happened:** A full match with tracking takes ~1.7–2 s, but under `pytest --cov` (branch coverage) it took 5.8 s and the spec's "under 5 s" test failed. The full suite went from ~5 s to ~85 s.
+- **Impact:** A performance assertion inside a traced process measures the tracer, not the code.
+- **Resolution:** `matchlens sim` now reports its generation time; the test runs it in a subprocess (not traced) and reads the number. Slow simulation tests carry a `slow` marker: CI runs everything, `make backend-test-fast` skips them (9 s).
+- **Status:** Resolved
+
+## F-012 · 2026-10-04 · Simulator calibration
+
+**Realism targets pull against each other**
+
+- **What happened:** Calibrating the simulator against the spec's targets (passes, accuracy, shots, goals, fouls, yellows, possession) took ten measured rounds. Raising fouls to 15–30 produced 1.4 penalties a match, which inflated xG to 0.17 a shot; direct teams scored 4–5 goals because strikers waited in the box ahead of the ball; tightening defence then dropped scoring to 1.4.
+- **Impact:** A single global constant change moved several stats at once, and one pairing could pass while others failed.
+- **Resolution:** A scratch calibration script over 20–50 seeds and all 12 club pairings, and fixes that model real football instead of tuning the symptom: fewer fouls inside the box (all of them penalties), more careful booked players, an offside line capping attackers' depth, denser defending in the final third, and shot choice weighted by xG^0.85. The balanced pairing now sits mid-range on every target.
+- **Status:** Resolved
+
+## F-011 · 2026-10-04 · Pydantic JSON Schema → TypeScript
+
+**Default Pydantic schemas generate poor TypeScript**
+
+- **What happened:** Running `json-schema-to-typescript` on the exported schemas gave `type?: "pass"` (optional, although it's always serialized), aliases like `EventId1 = string` for every field title, and a duplicate `NoAttrs1` interface wherever a `$ref` had a sibling `default`.
+- **Impact:** The frontend's generated types would have been loose and noisy.
+- **Resolution:** `json_schema_serialization_defaults_required=True` on the base contract, and the exporter strips field titles and defaults (model titles stay). All 11 schemas now generate clean types.
+- **Status:** Resolved
+
+## F-010 · 2026-10-04 · Pyright strict / Pydantic
+
+**Pyright strict rejects frozen Pydantic subclasses and narrowed fields**
+
+- **What happened:** With `frozen=True` as a class keyword on the base contract, pyright flagged every subclass ("A non-frozen class cannot inherit from a class that is frozen"); with `frozen` in `model_config`, it flagged every event subclass that narrowed a base field (`outcome: str | None` → `Literal[...]`) as an incompatible override of a mutable attribute. 149 errors in total.
+- **Impact:** The first event design (a base with every field, subclasses narrowing types) couldn't pass strict type checking without ignores.
+- **Resolution:** `frozen` stays in `model_config` (immutable at runtime). The base event holds only the shared fields; each event class declares all of its own fields, so nothing is overridden.
+- **Status:** Resolved
+
 ## F-009 · 2026-10-04 · Dependabot / TypeScript
 
 **Dependabot proposed TypeScript 7, which typescript-eslint can't use yet**

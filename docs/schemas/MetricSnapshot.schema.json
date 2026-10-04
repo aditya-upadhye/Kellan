@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MetricSnapshot",
+  "$defs": {
+    "MatchClock": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "enum": [
+            1,
+            2
+          ],
+          "type": "integer"
+        },
+        "ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "ms"
+      ],
+      "title": "MatchClock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "metric_id": {
+      "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+      "type": "string"
+    },
+    "scope": {
+      "enum": [
+        "match",
+        "team",
+        "player",
+        "event"
+      ],
+      "type": "string"
+    },
+    "subject_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "label": {
+      "maxLength": 60,
+      "minLength": 1,
+      "type": "string"
+    },
+    "value": {
+      "type": "number"
+    },
+    "unit": {
+      "enum": [
+        "",
+        "%",
+        "km/h",
+        "m",
+        "xG",
+        "index"
+      ],
+      "type": "string"
+    },
+    "window": {
+      "enum": [
+        "match",
+        "last_5m",
+        "last_10m"
+      ],
+      "type": "string"
+    },
+    "as_of_seq": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "clock": {
+      "$ref": "#/$defs/MatchClock"
+    }
+  },
+  "required": [
+    "metric_id",
+    "scope",
+    "subject_id",
+    "label",
+    "value",
+    "unit",
+    "window",
+    "as_of_seq",
+    "clock"
+  ],
+  "type": "object"
+}

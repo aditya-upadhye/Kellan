@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Insight",
+  "$defs": {
+    "CheckError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "unknown_metric",
+            "value_mismatch",
+            "uncited_number",
+            "span_not_found",
+            "unsupported_claim",
+            "too_long"
+          ],
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "CheckError",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "text_span": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "metric_id": {
+          "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "as_of_seq": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text_span",
+        "metric_id",
+        "value",
+        "as_of_seq"
+      ],
+      "title": "Claim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "insight_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "moment_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "verified",
+        "rejected",
+        "fallback"
+      ],
+      "type": "string"
+    },
+    "attempts": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/CheckError"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "insight_id",
+    "moment_id",
+    "headline",
+    "body",
+    "claims",
+    "tags",
+    "status",
+    "attempts",
+    "errors"
+  ],
+  "type": "object"
+}

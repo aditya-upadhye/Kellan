@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentTrace",
+  "additionalProperties": false,
+  "properties": {
+    "trace_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "moment_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agent": {
+      "enum": [
+        "detector",
+        "explainer",
+        "fact_checker",
+        "personalizer",
+        "producer"
+      ],
+      "type": "string"
+    },
+    "action": {
+      "maxLength": 60,
+      "minLength": 1,
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "approved",
+        "rejected",
+        "retry",
+        "fallback",
+        "error"
+      ],
+      "type": "string"
+    },
+    "latency_ms": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "tokens_in": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "tokens_out": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "detail": {
+      "maxLength": 200,
+      "type": "string"
+    },
+    "ts": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trace_id",
+    "match_id",
+    "moment_id",
+    "agent",
+    "action",
+    "status",
+    "latency_ms",
+    "tokens_in",
+    "tokens_out",
+    "detail",
+    "ts"
+  ],
+  "type": "object"
+}

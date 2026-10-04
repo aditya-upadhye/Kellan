@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
+    "pyyaml==6.0.3",
 ]
 
 [project.scripts]
@@ -14,12 +15,14 @@ matchlens = "matchlens.cli:main"
 
 [dependency-groups]
 dev = [
+    "hypothesis==6.168.3",
     "pip-audit==2.10.1",
     "pre-commit==4.6.2",
     "pyright==1.1.414",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "ruff==0.16.9",
+    "types-pyyaml==6.0.12.20260906",
 ]
 
 [build-system]
@@ -52,6 +55,7 @@ ban-relative-imports = "all"
 
 [tool.pyright]
 include = ["src", "tests"]
+extraPaths = ["src", "tests"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 venvPath = "."
@@ -59,9 +63,11 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "-m", "not azure"]
+pythonpath = ["tests"]
+addopts = ["-ra", "--strict-markers", "--import-mode=importlib", "-m", "not azure"]
 markers = [
     "azure: hits real Azure resources; run manually with `pytest -m azure`",
+    "slow: simulates many matches or full tracking; skip locally with `-m \"not slow\"`",
 ]
 
 [tool.coverage.run]
@@ -69,5 +75,6 @@ source = ["matchlens"]
 branch = true
 
 [tool.coverage.report]
+fail_under = 80
 show_missing = true
 skip_covered = true
