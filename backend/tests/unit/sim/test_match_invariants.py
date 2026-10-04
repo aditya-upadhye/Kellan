@@ -44,7 +44,7 @@ def match(request: pytest.FixtureRequest) -> SimulatedMatch:
         scenario="invariants",
         seed=seed,
     )
-    return simulate_match(metadata)
+    return simulate_match(metadata, with_tracking=False)
 
 
 def test_sequence_numbers_count_up_from_one(match: SimulatedMatch) -> None:

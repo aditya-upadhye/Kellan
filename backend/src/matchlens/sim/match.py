@@ -3,7 +3,9 @@ from random import Random
 
 from matchlens.models.events import MatchEvent
 from matchlens.models.match import MatchMetadata
+from matchlens.models.tracking import TrackingFrame
 from matchlens.sim.engine import MatchEngine
+from matchlens.sim.tracking import build_tracking_frames
 from matchlens.sim.tuning import DEFAULT_TUNING, EngineTuning
 from matchlens.world.models import Club, League
 
@@ -12,6 +14,7 @@ from matchlens.world.models import Club, League
 class SimulatedMatch:
     metadata: MatchMetadata
     events: list[MatchEvent]
+    frames: list[TrackingFrame]
 
 
 def match_id_for(scenario: str, seed: int) -> str:
@@ -33,7 +36,9 @@ def build_match_metadata(
 
 
 def simulate_match(
-    metadata: MatchMetadata, tuning: EngineTuning = DEFAULT_TUNING
+    metadata: MatchMetadata, tuning: EngineTuning = DEFAULT_TUNING, *, with_tracking: bool = True
 ) -> SimulatedMatch:
-    events = MatchEngine(metadata, Random(metadata.seed), tuning).run()
-    return SimulatedMatch(metadata=metadata, events=events)
+    rng = Random(metadata.seed)
+    events = MatchEngine(metadata, rng, tuning).run()
+    frames = build_tracking_frames(metadata, events, rng) if with_tracking else []
+    return SimulatedMatch(metadata=metadata, events=events, frames=frames)

@@ -74,6 +74,7 @@ CORNER_INSET_M = 0.5
 BOX_TARGET_DEPTH_M = (94.0, 100.0)
 BOX_TARGET_LATERAL_M = (28.0, 40.0)
 CROSSING_CHANNEL_M = 14.0
+BYLINE_ZONE_M = 12.0
 
 
 class MatchEngine:
@@ -393,11 +394,11 @@ class MatchEngine:
 
     def _out_of_play_spot(self, target: Spot) -> Spot:
         frame_target = self._in_frame(target, self._possession)
-        if frame_target.y < 8 or frame_target.y > PITCH_WIDTH_M - 8:
+        if frame_target.x > PITCH_LENGTH_M - BYLINE_ZONE_M:
+            frame_out = Spot(PITCH_LENGTH_M, frame_target.y)
+        else:
             touchline = 0.0 if frame_target.y < CENTRE_LATERAL_M else PITCH_WIDTH_M
             frame_out = Spot(frame_target.x, touchline)
-        else:
-            frame_out = Spot(PITCH_LENGTH_M, frame_target.y)
         return self._from_frame(frame_out, self._possession)
 
     def _loose_ball(self, spot: Spot, *, interceptable: bool) -> None:
@@ -515,13 +516,14 @@ class MatchEngine:
         )
         outcome = self._shot_outcome(goal_probability, situation)
         assist = self._assist_pass if self._assisted_by_last_pass(shooter) else None
+        end_spot = self._shot_end_spot(outcome)
 
         shot = self._log.emit(
             ShotEvent,
             team_id=side,
             player_id=shooter.player_id,
             location=to_point(origin),
-            end_location=to_point(self._shot_end_spot(outcome)),
+            end_location=to_point(end_spot),
             outcome=outcome,
             attrs=ShotAttrs(
                 body_part=body_part,
@@ -564,9 +566,9 @@ class MatchEngine:
                 else:
                     self._rebound(origin)
             case "off_target":
-                self._ball_out(side, shooter, self._shot_end_spot("off_target"))
+                self._ball_out(side, shooter, end_spot)
             case "woodwork":
-                self._rebound(self._shot_end_spot("woodwork"))
+                self._rebound(end_spot)
 
     def _assisted_by_last_pass(self, shooter: PlayerState) -> bool:
         return (

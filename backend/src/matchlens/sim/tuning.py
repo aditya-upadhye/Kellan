@@ -14,8 +14,8 @@ class EngineTuning:
     final_third_pressure_factor: float = 1.3
 
     shot_min_progress_m: float = 70.0
-    shot_weight_scale: float = 1.7
-    shot_xg_exponent: float = 0.85
+    shot_weight_scale: float = 2.5
+    shot_xg_exponent: float = 1.0
     pass_weight: float = 0.7
     pass_possession_style_weight: float = 0.5
     carry_weight: float = 0.24

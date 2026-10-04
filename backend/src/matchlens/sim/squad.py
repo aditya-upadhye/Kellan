@@ -42,6 +42,9 @@ class TeamState:
         ] + [PlayerState(player=player, slot=None, has_played=False) for player in substitutes]
         return cls(team=team, anchors=formation_anchors(team.formation), players=players)
 
+    def player(self, player_id: str) -> PlayerState:
+        return next(player for player in self.players if player.player_id == player_id)
+
     def on_pitch(self) -> list[PlayerState]:
         return [player for player in self.players if player.on_pitch]
 
