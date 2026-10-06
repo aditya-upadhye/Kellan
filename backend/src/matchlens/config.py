@@ -41,7 +41,11 @@ class Settings(BaseSettings):
     fast_model: str | None = None
     strong_model: str | None = None
     eventhubs_fqdn: str | None = None
+    eventhubs_name: str = "matchlens"
+    eventhubs_consumer_group: str = "$Default"
     cosmos_endpoint: str | None = None
+    cosmos_database: str = "matchlens"
+    cosmos_container: str = "metrics"
     applicationinsights_connection_string: str | None = None
 
     fault_inject_rate: float = Field(default=0.0, ge=0.0, le=1.0)

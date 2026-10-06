@@ -61,10 +61,12 @@
     "unit": {
       "enum": [
         "",
+        "count",
         "%",
         "km/h",
         "m",
         "xG",
+        "ratio",
         "index"
       ],
       "type": "string"

@@ -2,6 +2,19 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
+## [Unreleased] — M2 transport, store and metrics
+
+### Added
+
+- Local FIFO transport and an Azure Event Hubs publisher/consumer behind a shared protocol. Replay-session application properties isolate repeated plays of the same match ID. The Azure SDKs are pinned in the optional `azure` dependency group; `DefaultAzureCredential` supports local login and managed identity.
+- In-memory and Azure Cosmos metric stores with historical `as_of_seq` lookup and per-window snapshots. Cosmos partitions by match ID.
+- Incremental metric engine for goals, match and five-minute possession, team and player passing, pass difficulty, xG, shot and ball speed, ten-minute PPDA and field tilt, momentum, five-minute control, and frame-derived distance, top speed and sprint crossings. Count and ratio units were added to the generated schema.
+- Replay CLI with 1×, 10×, 30×, 60× and max speeds, merging saved event and tracking streams by match clock. Hand-built metric tests and local stream-vs-batch parity checks are in place.
+
+### Verified
+
+- Live Event Hubs and Cosmos integration tests pass against Azure resources with Microsoft Entra ID credentials. Database and container provisioning is an infrastructure responsibility; the Cosmos runtime adapter uses data-plane access only. Azure tests remain marked `azure` and excluded from default CI.
+
 ## [m1] — Fictional world and simulator
 
 ### Added

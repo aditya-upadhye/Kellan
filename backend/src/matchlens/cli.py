@@ -1,15 +1,23 @@
 import argparse
+import asyncio
 import sys
 import time
+import uuid
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 from matchlens import __version__
 from matchlens.config import get_settings
 from matchlens.models.json_schema import export_json_schemas
+from matchlens.pipeline.replay import ReplaySpeed, read_match, replay_match
 from matchlens.sim.match import simulate_scenario
 from matchlens.sim.output import write_match
 from matchlens.sim.scenarios import UnknownScenarioError, load_scenario
+from matchlens.store.cosmos import CosmosMetricStore
+from matchlens.store.memory import MemoryMetricStore
+from matchlens.transport.eventhubs import EventHubsTransport
+from matchlens.transport.local import LocalTransport
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 DEFAULT_SCHEMAS_DIR = Path("docs/schemas")
@@ -53,6 +61,40 @@ def run_sim(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_replay(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    transport = (
+        LocalTransport()
+        if settings.transport.value == "local"
+        else EventHubsTransport(
+            settings.eventhubs_fqdn or "",
+            settings.eventhubs_name,
+            settings.eventhubs_consumer_group,
+            replay_session=uuid.uuid4().hex,
+        )
+    )
+    store = (
+        MemoryMetricStore()
+        if settings.store.value == "memory"
+        else CosmosMetricStore(
+            settings.cosmos_endpoint or "", settings.cosmos_database, settings.cosmos_container
+        )
+    )
+
+    async def run() -> None:
+        speed: ReplaySpeed = "max" if args.speed == "max" else cast("ReplaySpeed", int(args.speed))
+        snapshots = await replay_match(args.match_dir, transport, store, speed)
+        print(f"processed {len(snapshots)} metric snapshots")
+        metadata, _ = read_match(args.match_dir)
+        for metric_id in ("team.home.goals", "team.away.goals", "team.home.xg", "team.away.xg"):
+            snapshot = await store.get(metadata.match_id, metric_id)
+            print(f"{metric_id}={snapshot.value if snapshot else 0}")
+        await store.close()
+
+    asyncio.run(run())
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="matchlens")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -73,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
     sim.add_argument("--output-dir", type=Path, default=None)
     sim.add_argument("--events-only", action="store_true", help="skip tracking frames")
     sim.set_defaults(handler=run_sim)
+
+    replay = commands.add_parser("replay", help="replay saved match streams through metrics")
+    replay.add_argument("match_dir", type=Path)
+    replay.add_argument("--speed", choices=("1", "10", "30", "60", "max"), default="max")
+    replay.set_defaults(handler=run_replay)
 
     return parser
 

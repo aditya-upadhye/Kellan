@@ -7,7 +7,7 @@ from matchlens.models.clock import MatchClock
 
 MetricScope = Literal["match", "team", "player", "event"]
 MetricWindow = Literal["match", "last_5m", "last_10m"]
-MetricUnit = Literal["", "%", "km/h", "m", "xG", "index"]
+MetricUnit = Literal["", "count", "%", "km/h", "m", "xG", "ratio", "index"]
 MetricId = Annotated[
     str, StringConstraints(pattern=r"^(match|team|player|event)(\.[A-Za-z0-9_-]+)+$")
 ]
