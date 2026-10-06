@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M1 — fictional world and simulator, in progress. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1 is tagged; M2 transport, store and metrics are under development on `m2-metrics`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -80,6 +80,20 @@ make sim SCENARIO=late_comeback SEED=42
 | `red_card_press` | Port Halden FC v Kestrel Bay Athletic | Away red card at 55'; hosts raise their press from 60' |
 
 The same scenario and seed always produce byte-identical files. `DATA_DIR` overrides where scenarios are read from and samples are written to (default: the repository's `data/`).
+
+## Replaying and computing metrics
+
+Replay a saved match through the local queue and in-memory historical metric store:
+
+```bash
+uv run --directory backend matchlens replay ../data/samples/balanced-s42 --speed max
+# Supported speeds: 1, 10, 30, 60, max (match-clock multiplier)
+```
+
+From `backend/` on Windows, use `.venv/Scripts/python.exe -m matchlens.cli replay ../data/samples/balanced-s42 --speed max`.
+The replay command prints snapshot count, score and xG. It merges events and 1 Hz tracking by match clock, with events first on a tied timestamp. The metrics engine emits snapshots only when a value changes and retains sequence history for `get(match_id, metric_id, as_of_seq)`. Rolling possession, PPDA, field tilt and control windows use match time; PPDA is zero when there are no defensive actions in the window.
+
+For Azure adapters, install `uv sync --directory backend --locked --extra azure`, set `TRANSPORT=eventhubs` and/or `STORE=cosmos`, and provide the endpoint settings from `.env.example`. Azure authentication uses `DefaultAzureCredential` (for example, `az login` locally or managed identity in Azure). Replay uses an Event Hubs application property to isolate runs of the same saved match. `pytest -m azure` runs live Event Hubs and Cosmos checks when their endpoint variables and resources are available; default CI skips them.
 
 ## Data contracts
 

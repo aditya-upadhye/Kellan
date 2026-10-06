@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-015 · 2026-10-05 · Metric unit contract gap
+
+**The M1 metric unit enum omitted two units required by M2**
+
+- **What happened:** The M1 `MetricSnapshot` contract only allowed blank, percent, speed, distance, xG and index, but the M2 metric table specifies `count` for goals/passes/sprints and `ratio` for PPDA.
+- **Impact:** Valid M2 snapshots could not pass the Pydantic contract or generated JSON Schema.
+- **Resolution:** Added `count` and `ratio` to `MetricUnit`, regenerated `docs/schemas/MetricSnapshot.schema.json`, and reran the schema drift test.
+- **Status:** Resolved
+
 ## F-014 · 2026-10-04 · Pyright `extraPaths`
 
 **Adding `extraPaths` broke resolution of the project's own package**
