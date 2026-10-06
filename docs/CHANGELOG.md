@@ -11,9 +11,9 @@ All notable changes are recorded here, one section per milestone tag.
 - Incremental metric engine for goals, match and five-minute possession, team and player passing, pass difficulty, xG, shot and ball speed, ten-minute PPDA and field tilt, momentum, five-minute control, and frame-derived distance, top speed and sprint crossings. Count and ratio units were added to the generated schema.
 - Replay CLI with 1×, 10×, 30×, 60× and max speeds, merging saved event and tracking streams by match clock. Hand-built metric tests and local stream-vs-batch parity checks are in place.
 
-### Pending M2 gate
+### Verified
 
-- Live Event Hubs and Cosmos integration tests require configured Azure resources and credentials. They are marked `azure` and excluded from default CI.
+- Live Event Hubs and Cosmos integration tests pass against Azure resources with Microsoft Entra ID credentials. Database and container provisioning is an infrastructure responsibility; the Cosmos runtime adapter uses data-plane access only. Azure tests remain marked `azure` and excluded from default CI.
 
 ## [m1] — Fictional world and simulator
 

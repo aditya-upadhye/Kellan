@@ -6,7 +6,7 @@ from matchlens.transport.eventhubs import EventHubsTransport
 
 
 class FakeEventData:
-    def __init__(self, body: str, properties: dict[str, str] | None = None) -> None:
+    def __init__(self, body: str, properties: dict[str, str | bytes] | None = None) -> None:
         self.body = body
         self.properties = properties
 
@@ -40,7 +40,8 @@ class FakeConsumer:
         self.stale = stale
         self.current = current
 
-    async def receive(self, on_event: Any, *, starting_position: str) -> None:
+    async def receive(self, on_event: Any, *, on_error: Any, starting_position: str) -> None:
+        assert on_error is not None
         assert starting_position == "-1"
         await on_event(None, self.stale)
         await on_event(None, self.current)
@@ -62,7 +63,7 @@ def test_replay_session_filters_stale_events_for_same_match() -> None:
         transport = FakeTransport(
             FakeConsumer(
                 FakeEventData(message.model_dump_json(), {"replay_session": "old"}),
-                FakeEventData(message.model_dump_json(), {"replay_session": "current"}),
+                FakeEventData(message.model_dump_json(), {"replay_session": b"current"}),
             ),
             producer,
         )

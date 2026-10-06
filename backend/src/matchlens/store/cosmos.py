@@ -21,11 +21,8 @@ class CosmosMetricStore:
 
     async def _ready(self) -> Any:
         if self._container is None:
-            database = await self._client.create_database_if_not_exists(self._database_name)
-            partition_key = import_module("azure.cosmos").PartitionKey(path="/match_id")
-            self._container = await database.create_container_if_not_exists(
-                id=self._container_name, partition_key=partition_key
-            )
+            database = self._client.get_database_client(self._database_name)
+            self._container = database.get_container_client(self._container_name)
         return self._container
 
     async def put(self, match_id: str, snapshot: MetricSnapshot) -> None:

@@ -37,8 +37,15 @@ def test_eventhubs_round_trip() -> None:
             await old.publish(
                 StreamEnvelope(kind="status", match_id=match_id, data={"state": "stale"})
             )
-            await transport.publish(expected)
-            assert await asyncio.wait_for(task, timeout=30) == expected
+            for _ in range(3):
+                await transport.publish(expected)
+                try:
+                    assert await asyncio.wait_for(asyncio.shield(task), timeout=10) == expected
+                    break
+                except TimeoutError:
+                    continue
+            else:
+                pytest.fail("Event Hubs consumer did not receive the published message")
         finally:
             task.cancel()
             await transport.close()

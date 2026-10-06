@@ -46,34 +46,52 @@ class EventHubsTransport:
 
     async def subscribe(self) -> AsyncGenerator[StreamEnvelope, None]:
         queue: asyncio.Queue[StreamEnvelope] = asyncio.Queue(maxsize=1024)
+        errors: asyncio.Queue[Exception] = asyncio.Queue(maxsize=1)
 
         async def on_event(_: Any, event: Any) -> None:
             if event is not None:
                 if self._replay_session is not None:
-                    properties = cast("dict[str | bytes, str]", event.properties or {})
+                    properties = cast("dict[str | bytes, str | bytes]", event.properties or {})
                     session = properties.get("replay_session") or properties.get(b"replay_session")
+                    if isinstance(session, bytes):
+                        session = session.decode()
                     if session != self._replay_session:
                         return
                 await queue.put(StreamEnvelope.model_validate_json(event.body_as_str()))
 
-        task = asyncio.create_task(self._consumer.receive(on_event, starting_position="-1"))
+        async def on_error(_: Any, error: Exception) -> None:
+            if errors.empty():
+                await errors.put(error)
+
+        task = asyncio.create_task(
+            self._consumer.receive(on_event, on_error=on_error, starting_position="-1")
+        )
         next_message: asyncio.Task[StreamEnvelope] | None = None
+        next_error: asyncio.Task[Exception] | None = None
         try:
             while True:
                 next_message = asyncio.create_task(queue.get())
+                next_error = asyncio.create_task(errors.get())
                 done, _ = await asyncio.wait(
-                    {task, next_message}, return_when=asyncio.FIRST_COMPLETED
+                    {task, next_message, next_error}, return_when=asyncio.FIRST_COMPLETED
                 )
                 if next_message in done:
+                    next_error.cancel()
                     yield next_message.result()
+                elif next_error in done:
+                    next_message.cancel()
+                    raise next_error.result()
                 else:
                     next_message.cancel()
+                    next_error.cancel()
                 if task in done:
                     task.result()
                     raise RuntimeError("Event Hubs consumer stopped")
         finally:
             if next_message is not None:
                 next_message.cancel()
+            if next_error is not None:
+                next_error.cancel()
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
