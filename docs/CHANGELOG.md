@@ -7,6 +7,7 @@ All notable changes are recorded here, one section per milestone tag.
 ### Added
 
 - Explainer agent requests a structured narrative and evidence claims through the strong-model LLM client. It supplies one moment, evidence snapshots, score, minute, allowed names and the three most recent insights, then wraps the response in a draft `Insight` with stable IDs.
+- Deterministic claim verification checks historical metric values at each claim's `as_of_seq`, displayed rounding and units, evidence membership, exact text spans, uncited digits and English number words, and headline/body limits. It returns structured error codes for the retry stage.
 
 ## [m4] — LLM layer and deterministic moment detection
 
