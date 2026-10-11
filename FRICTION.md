@@ -2,6 +2,33 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-018 · 2026-10-11 · Foundry data-plane role
+
+**A CLI-created Foundry resource did not grant the signed-in user Foundry User access**
+
+- **What happened:** The Foundry portal reported that the user lacks permission to create agents in the project. Microsoft documents that Foundry User is not assigned automatically when the resource is created through CLI.
+- **Impact:** The portal blocked hosted agent creation, and local model access needed verification.
+- **Resolution:** Foundry User assignment was handled through Azure portal Access control (IAM). A subsequent local structured-output call to the deployed model succeeded. Portal agent creation was not retested because MatchLens calls the model directly.
+- **Status:** Resolved for MatchLens model access
+
+## F-017 · 2026-10-11 · uv cache and package access
+
+**Dependency resolution could not use the default cache or reach PyPI from the sandbox**
+
+- **What happened:** `uv lock` could not open the default cache under AppData. With a temporary cache, sandboxed network access to PyPI failed.
+- **Impact:** The OpenTelemetry dependency lock could not be refreshed through the default command.
+- **Resolution:** Set `UV_CACHE_DIR` to a writable temporary directory and ran dependency resolution and sync with approved network access. The resulting lock and environment use pinned OpenTelemetry packages.
+- **Status:** Resolved
+
+## F-016 · 2026-10-11 · Workspace access permissions
+
+**Repository ownership and pytest cache permissions blocked the default checks**
+
+- **What happened:** Git rejected the workspace as dubious because its owner SID differs from the current process. Pytest also could not write its cache under `backend/.pytest_cache`.
+- **Impact:** Git status and the default pytest invocation could not run cleanly in this session.
+- **Resolution:** Git commands used a command-scoped `safe.directory` setting, and pytest ran with its cache provider disabled. No global Git configuration was changed.
+- **Status:** Resolved
+
 ## F-015 · 2026-10-11 · Docker Engine
 
 **Docker Compose cannot start because the Docker Engine is stopped**

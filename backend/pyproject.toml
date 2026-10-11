@@ -6,6 +6,8 @@ authors = [{ name = "Aditya Upadhye" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi==0.142.2",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
     "pydantic==2.13.5",
     "pydantic-settings==2.15.0",
     "pyyaml==6.0.3",
@@ -16,6 +18,10 @@ dependencies = [
 azure = [
     "azure-eventhub==5.15.1",
     "azure-cosmos[aio]==4.17.1",
+    "azure-identity==1.26.0",
+]
+foundry = [
+    "agent-framework-foundry==1.14.1",
     "azure-identity==1.26.0",
 ]
 
@@ -58,6 +64,7 @@ ignore = ["PLR2004"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0913"]
+"src/matchlens/llm/client.py" = ["PLR0913"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
