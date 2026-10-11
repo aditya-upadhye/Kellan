@@ -8,6 +8,7 @@ All notable changes are recorded here, one section per milestone tag.
 
 - Explainer agent requests a structured narrative and evidence claims through the strong-model LLM client. It supplies one moment, evidence snapshots, score, minute, allowed names and the three most recent insights, then wraps the response in a draft `Insight` with stable IDs.
 - Deterministic claim verification checks historical metric values at each claim's `as_of_seq`, displayed rounding and units, evidence membership, exact text spans, uncited digits and English number words, and headline/body limits. It returns structured error codes for the retry stage.
+- Fact-Checker retries rejected drafts up to twice with structured verifier errors, records rejection and retry traces, and approves only drafts with no verification errors. Disabled or failed model calls and exhausted retries use a deterministic moment template; metric evidence is included only when the completed template passes the same verifier.
 
 ## [m4] — LLM layer and deterministic moment detection
 

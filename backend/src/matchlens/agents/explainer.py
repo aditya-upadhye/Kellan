@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from matchlens.llm.client import LLMClient
     from matchlens.models.base import TeamSide
-    from matchlens.models.insights import Moment
+    from matchlens.models.insights import CheckError, Moment
     from matchlens.models.metrics import MetricSnapshot
 
 
@@ -39,14 +39,19 @@ class ExplainerAgent:
         self._client = client
         self._strong_model = strong_model
 
-    async def explain(
+    async def explain(  # noqa: PLR0913
         self,
         moment: Moment,
         evidence: list[MetricSnapshot],
         score: Mapping[TeamSide, int],
         names: Mapping[str, str],
         recent_insights: list[Insight],
+        *,
+        errors: list[CheckError] | None = None,
+        attempt: int = 1,
     ) -> Insight:
+        if attempt < 1:
+            raise ValueError("attempt must be positive")
         if set(score) != {"home", "away"} or any(value < 0 for value in score.values()):
             raise ValueError("score must contain non-negative home and away totals")
         if any(snapshot.metric_id not in moment.evidence_metric_ids for snapshot in evidence):
@@ -64,6 +69,7 @@ class ExplainerAgent:
                     {"headline": insight.headline, "body": insight.body}
                     for insight in recent_insights[-3:]
                 ],
+                "check_errors": [error.model_dump(mode="json") for error in errors or []],
             },
             separators=(",", ":"),
             sort_keys=True,
@@ -100,6 +106,6 @@ class ExplainerAgent:
             claims=claims,
             tags=response.tags,
             status="draft",
-            attempts=1,
+            attempts=attempt,
             errors=[],
         )
