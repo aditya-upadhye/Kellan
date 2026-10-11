@@ -83,6 +83,31 @@ def test_mock_mode_uses_default_fixture() -> None:
     assert result == {"headline": "A moment"}
 
 
+def test_mock_mode_builds_batch_response_from_input() -> None:
+    def respond(user: str) -> dict[str, Any]:
+        payload = json.loads(user)
+        return {
+            "decisions": [
+                {"moment_id": item["moment_id"], "keep": True, "significance": 0.7}
+                for item in payload["candidates"]
+            ],
+            "merge_groups": [],
+        }
+
+    client = MockLLMClient({("detector", "batch"): respond})
+    result = asyncio.run(
+        client.complete_json(
+            "detector",
+            "system",
+            json.dumps({"moment_type": "batch", "candidates": [{"moment_id": "m-1"}]}),
+            {},
+            "fast",
+        )
+    )
+
+    assert result["decisions"] == [{"moment_id": "m-1", "keep": True, "significance": 0.7}]
+
+
 def test_mock_mode_requires_a_matching_fixture() -> None:
     traces: list[AgentTrace] = []
     client = MockLLMClient({}, traces.append)

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from matchlens.models.insights import Moment
 
 DETECTOR_INTERVAL_MS = 15_000
-NONCRITICAL_INTERVAL_MS = 2 * 60_000
+NONCRITICAL_INTERVAL_MS = 5 * 60_000
 CRITICAL_TYPES = {"goal", "card"}
 
 

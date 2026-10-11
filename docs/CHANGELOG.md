@@ -8,8 +8,14 @@ All notable changes are recorded here, one section per milestone tag.
 
 - Deterministic goal, card, big chance, momentum, pressing, control, speed and milestone triggers, plus periodic player spotlights.
 - Candidate merging for nearby moments with matching types and subjects; goals and cards remain independent.
-- Detector agent reviews pending candidates every 15 match seconds, passes goals and cards immediately, and caps noncritical cues at one per two match minutes. Disabled, unavailable or invalid model responses fall back to rule significance.
+- Detector agent reviews pending candidates every 15 match seconds, passes goals and cards immediately, and selects at most one noncritical cue per five match minutes. Disabled, unavailable or invalid model responses fall back to rule significance.
+- Mock batch fixtures can derive decisions from candidate IDs, so full match checks exercise mock decisions instead of the fallback path.
 - OpenTelemetry spans cover LLM requests and Detector reviews. AgentTrace records share their active trace ID, and the API starts a console exporter for local inspection.
+
+### Verified
+
+- Full tracking matches across `balanced`, `late_comeback` and `red_card_press` with seeds 1, 2 and 3 produced 23–30 moments in both off and mock modes. Mock decisions completed without fallback. The five-minute noncritical interval was chosen after the two-minute and four-minute intervals exceeded the 30-moment target.
+- Console span export and trace correlation pass focused tests. The live Foundry call remains pending a project and model deployment.
 
 ## [m3] — Live match view
 

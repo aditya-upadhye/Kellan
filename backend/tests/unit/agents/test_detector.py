@@ -95,7 +95,7 @@ def test_critical_moments_pass_immediately_and_are_not_rate_limited() -> None:
     assert second == [card]
 
 
-def test_one_noncritical_candidate_per_two_minutes() -> None:
+def test_noncritical_candidate_waits_five_minutes() -> None:
     response: dict[str, Any] = {"decisions": [], "merge_groups": []}
     detector = DetectorAgent(mock_client(response), "fast")
     first = candidate(1)
@@ -105,7 +105,8 @@ def test_one_noncritical_candidate_per_two_minutes() -> None:
 
     response["decisions"] = [{"moment_id": second.moment_id, "keep": True, "significance": 0.9}]
     assert asyncio.run(detector.evaluate([second], {}, 30_000)) == []
-    assert len(asyncio.run(detector.evaluate([], {}, 135_000))) == 1
+    assert asyncio.run(detector.evaluate([], {}, 135_000)) == []
+    assert len(asyncio.run(detector.evaluate([], {}, 315_000))) == 1
 
 
 def test_invalid_response_falls_back_for_entire_batch() -> None:

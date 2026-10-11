@@ -69,6 +69,8 @@ az login
 
 The Foundry adapter uses the [Microsoft Agent Framework Foundry provider](https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/model-providers/microsoft-foundry). The default mock and off modes do not require Azure credentials or the optional package.
 
+For M4 acceptance, run `uv run --directory backend python scripts/check_m4.py` to check all three scenarios and three seeds in off and mock modes. After configuring Foundry, run `uv run --directory backend python scripts/check_foundry.py` for one live structured-output call and a console span. The local Foundry check requires both model names in `.env`; for this single call, they may refer to the same deployment.
+
 The API starts a console OpenTelemetry exporter. LLM calls and Detector reviews create spans and `AgentTrace` records with a shared trace ID. These spans appear in the API console when the agent workflow runs.
 
 ```bash

@@ -14,6 +14,7 @@ from matchlens.models.traces import AgentName, AgentTrace, TraceStatus
 from matchlens.obs.telemetry import current_trace_id
 
 TraceRecorder = Callable[[AgentTrace], None]
+MockResponse = dict[str, Any] | Callable[[str], dict[str, Any]]
 
 
 class FoundryResponse(Protocol):
@@ -83,7 +84,7 @@ class OffLLMClient:
 class MockLLMClient:
     def __init__(
         self,
-        responses: Mapping[tuple[AgentName, str], dict[str, Any]],
+        responses: Mapping[tuple[AgentName, str], MockResponse],
         record_trace: TraceRecorder | None = None,
     ) -> None:
         self._responses = responses
@@ -111,6 +112,8 @@ class MockLLMClient:
                 response = self._responses.get((agent, "default"))
             if response is None:
                 raise LookupError(f"no mock response for {agent}/{moment_type}")
+            if callable(response):
+                response = response(user)
             result = cast("dict[str, Any]", json.loads(json.dumps(response)))
             tokens_out = ceil(len(json.dumps(result)) / 4)
             return result
@@ -280,7 +283,7 @@ class TracedLLMClient:
 
 def create_llm_client(
     settings: Settings,
-    mock_responses: Mapping[tuple[AgentName, str], dict[str, Any]] | None = None,
+    mock_responses: Mapping[tuple[AgentName, str], MockResponse] | None = None,
     record_trace: TraceRecorder | None = None,
 ) -> LLMClient:
     if settings.llm_mode is LLMMode.OFF:
