@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-017 · 2026-10-11 · uv cache and package access
+
+**Dependency resolution could not use the default cache or reach PyPI from the sandbox**
+
+- **What happened:** `uv lock` could not open the default cache under AppData. With a temporary cache, sandboxed network access to PyPI failed.
+- **Impact:** The OpenTelemetry dependency lock could not be refreshed through the default command.
+- **Resolution:** Set `UV_CACHE_DIR` to a writable temporary directory and ran dependency resolution and sync with approved network access. The resulting lock and environment use pinned OpenTelemetry packages.
+- **Status:** Resolved
+
 ## F-016 · 2026-10-11 · Workspace access permissions
 
 **Repository ownership and pytest cache permissions blocked the default checks**

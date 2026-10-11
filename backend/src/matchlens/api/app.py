@@ -10,6 +10,7 @@ from matchlens.api.matches import (
     session_stream,
 )
 from matchlens.config import get_settings
+from matchlens.obs import configure_console_tracing
 from matchlens.sim.scenarios import load_scenario, scenario_names
 
 
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        configure_console_tracing()
         yield
         await manager.close()
 

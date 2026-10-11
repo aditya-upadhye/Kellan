@@ -46,7 +46,8 @@ def test_detector_waits_for_tick_then_applies_decisions_and_compatible_merge() -
         ],
         "merge_groups": [[first.moment_id, second.moment_id]],
     }
-    detector = DetectorAgent(mock_client(response), "fast")
+    traces: list[AgentTrace] = []
+    detector = DetectorAgent(mock_client(response), "fast", traces.append)
 
     assert asyncio.run(detector.evaluate([first, second, third], {}, 14_999)) == []
     result = asyncio.run(detector.evaluate([], {}, 15_000))
@@ -56,11 +57,17 @@ def test_detector_waits_for_tick_then_applies_decisions_and_compatible_merge() -
     assert result[0].significance == 0.8
     assert result[0].seq_start == 1
     assert result[0].seq_end == 2
+    assert [(item.action, item.status) for item in traces] == [
+        ("decide", "approved"),
+        ("decide", "approved"),
+        ("decide", "rejected"),
+        ("emit", "approved"),
+    ]
 
 
 def test_detector_fallback_uses_rule_score_and_emits_off_trace() -> None:
     traces: list[AgentTrace] = []
-    detector = DetectorAgent(OffLLMClient(traces.append), "fast")
+    detector = DetectorAgent(OffLLMClient(traces.append), "fast", traces.append)
     item = candidate(1)
 
     result = asyncio.run(detector.evaluate([item], {}, 15_000))
@@ -69,6 +76,10 @@ def test_detector_fallback_uses_rule_score_and_emits_off_trace() -> None:
     assert result[0].significance == item.rule_score
     assert traces[0].agent == "detector"
     assert traces[0].status == "fallback"
+    assert [(item.action, item.status) for item in traces[1:]] == [
+        ("decide", "fallback"),
+        ("emit", "approved"),
+    ]
 
 
 def test_critical_moments_pass_immediately_and_are_not_rate_limited() -> None:

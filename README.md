@@ -69,6 +69,8 @@ az login
 
 The Foundry adapter uses the [Microsoft Agent Framework Foundry provider](https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/model-providers/microsoft-foundry). The default mock and off modes do not require Azure credentials or the optional package.
 
+The API starts a console OpenTelemetry exporter. LLM calls and Detector reviews create spans and `AgentTrace` records with a shared trace ID. These spans appear in the API console when the agent workflow runs.
+
 ```bash
 uv run --directory backend matchlens info   # print the active modes
 ```

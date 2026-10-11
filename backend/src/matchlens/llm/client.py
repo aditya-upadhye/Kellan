@@ -5,10 +5,13 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from math import ceil
 from typing import Any, Protocol, cast
-from uuid import uuid4
+
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 from matchlens.config import LLMMode, Settings
 from matchlens.models.traces import AgentName, AgentTrace, TraceStatus
+from matchlens.obs.telemetry import current_trace_id
 
 TraceRecorder = Callable[[AgentTrace], None]
 
@@ -228,16 +231,63 @@ class FoundryLLMClient:
         raise RuntimeError("Foundry request did not return a response")
 
 
+class TracedLLMClient:
+    def __init__(self, client: LLMClient) -> None:
+        self._client = client
+
+    async def complete_json(
+        self,
+        agent: AgentName,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        model: str,
+        *,
+        match_id: str = "system",
+        moment_id: str | None = None,
+    ) -> dict[str, Any]:
+        tracer = trace.get_tracer("matchlens.llm")
+        with tracer.start_as_current_span(
+            "matchlens.llm.complete_json",
+            record_exception=False,
+            set_status_on_exception=False,
+        ) as span:
+            span.set_attribute("matchlens.agent", agent)
+            span.set_attribute("matchlens.match_id", match_id)
+            span.set_attribute("matchlens.model", model)
+            if moment_id is not None:
+                span.set_attribute("matchlens.moment_id", moment_id)
+            try:
+                result = await self._client.complete_json(
+                    agent,
+                    system,
+                    user,
+                    schema,
+                    model,
+                    match_id=match_id,
+                    moment_id=moment_id,
+                )
+            except LLMDisabledError:
+                span.set_attribute("matchlens.result", "fallback")
+                raise
+            except Exception as error:
+                span.record_exception(error)
+                span.set_status(Status(StatusCode.ERROR))
+                raise
+            span.set_attribute("matchlens.result", "ok")
+            return result
+
+
 def create_llm_client(
     settings: Settings,
     mock_responses: Mapping[tuple[AgentName, str], dict[str, Any]] | None = None,
     record_trace: TraceRecorder | None = None,
 ) -> LLMClient:
     if settings.llm_mode is LLMMode.OFF:
-        return OffLLMClient(record_trace)
+        return TracedLLMClient(OffLLMClient(record_trace))
     if settings.llm_mode is LLMMode.MOCK:
-        return MockLLMClient(mock_responses or {}, record_trace)
-    return FoundryLLMClient(settings, record_trace)
+        return TracedLLMClient(MockLLMClient(mock_responses or {}, record_trace))
+    return TracedLLMClient(FoundryLLMClient(settings, record_trace))
 
 
 def _moment_type(user: str) -> str:
@@ -275,7 +325,7 @@ def _trace(
     detail: str,
 ) -> AgentTrace:
     return AgentTrace(
-        trace_id=uuid4().hex,
+        trace_id=current_trace_id(),
         match_id=match_id,
         moment_id=moment_id,
         agent=agent,

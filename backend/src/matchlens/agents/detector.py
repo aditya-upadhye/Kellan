@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import json
+import time
+from datetime import UTC, datetime
 from importlib.resources import files
 from typing import TYPE_CHECKING
 
+from opentelemetry import trace
 from pydantic import Field
 
 from matchlens.agents.triggers import merge_candidates
 from matchlens.models.base import Contract
+from matchlens.models.traces import AgentTrace, TraceStatus
+from matchlens.obs.telemetry import current_trace_id
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     from matchlens.llm.client import LLMClient
     from matchlens.models.insights import Moment
@@ -32,9 +37,15 @@ class DetectorResponse(Contract):
 
 
 class DetectorAgent:
-    def __init__(self, client: LLMClient, fast_model: str) -> None:
+    def __init__(
+        self,
+        client: LLMClient,
+        fast_model: str,
+        record_trace: Callable[[AgentTrace], None] | None = None,
+    ) -> None:
         self._client = client
         self._fast_model = fast_model
+        self._record_trace = record_trace
         self._pending: dict[str, Moment] = {}
         self._next_review_ms = DETECTOR_INTERVAL_MS
         self._last_noncritical_ms: int | None = None
@@ -50,28 +61,123 @@ class DetectorAgent:
             raise ValueError("elapsed_ms must be non-negative")
 
         critical = [candidate for candidate in candidates if candidate.type in CRITICAL_TYPES]
+        tracer = trace.get_tracer("matchlens.detector")
+        for candidate in critical:
+            with tracer.start_as_current_span("matchlens.detector.critical") as span:
+                span.set_attribute("matchlens.match_id", candidate.match_id)
+                span.set_attribute("matchlens.moment_id", candidate.moment_id)
+                self._emit_trace(candidate, "emit", "approved", "critical moment")
         for candidate in candidates:
             if candidate.type not in CRITICAL_TYPES:
                 self._pending[candidate.moment_id] = candidate
 
         if elapsed_ms < self._next_review_ms:
             return critical
+        reviewed = await self._review(state_summary, elapsed_ms)
+        return sorted([*critical, *reviewed], key=lambda item: (item.seq_start, item.moment_id))
+
+    async def _review(
+        self, state_summary: Mapping[str, str | float], elapsed_ms: int
+    ) -> list[Moment]:
         while self._next_review_ms <= elapsed_ms:
             self._next_review_ms += DETECTOR_INTERVAL_MS
-        if not self._pending:
-            deferred = self._limit_noncritical([], elapsed_ms)
-            return sorted([*critical, *deferred], key=lambda item: (item.seq_start, item.moment_id))
+        if not self._pending and self._deferred is None:
+            return []
+        match_id = next(iter(self._pending.values())).match_id if self._pending else None
+        if match_id is None and self._deferred is not None:
+            match_id = self._deferred.match_id
+        tracer = trace.get_tracer("matchlens.detector")
+        with tracer.start_as_current_span("matchlens.detector.review") as span:
+            span.set_attribute("matchlens.elapsed_ms", elapsed_ms)
+            if match_id is not None:
+                span.set_attribute("matchlens.match_id", match_id)
+            span.set_attribute("matchlens.candidate_count", len(self._pending))
+            if not self._pending:
+                emitted = self._limit_noncritical([], elapsed_ms)
+                self._record_pacing([], emitted)
+                span.set_attribute("matchlens.emitted_count", len(emitted))
+                return emitted
 
-        pending = list(self._pending.values())
-        self._pending.clear()
-        try:
-            decisions = await self._request_decisions(pending, state_summary)
-            reviewed = self._apply_decisions(pending, decisions)
-        except Exception:
-            reviewed = _fallback(pending)
+            pending = list(self._pending.values())
+            self._pending.clear()
+            started = time.perf_counter()
+            response: DetectorResponse | None = None
+            fallback_reason = ""
+            try:
+                response = await self._request_decisions(pending, state_summary)
+                reviewed = self._apply_decisions(pending, response)
+            except Exception as error:
+                response = None
+                fallback_reason = type(error).__name__
+                reviewed = _fallback(pending)
+                span.set_attribute("matchlens.fallback_reason", fallback_reason)
+            latency_ms = round((time.perf_counter() - started) * 1000)
+            self._record_decisions(pending, response, fallback_reason, latency_ms)
+            emitted = self._limit_noncritical(reviewed, elapsed_ms)
+            self._record_pacing(reviewed, emitted)
+            span.set_attribute("matchlens.emitted_count", len(emitted))
+            return emitted
 
-        reviewed = self._limit_noncritical(reviewed, elapsed_ms)
-        return sorted([*critical, *reviewed], key=lambda item: (item.seq_start, item.moment_id))
+    def _record_decisions(
+        self,
+        candidates: list[Moment],
+        response: DetectorResponse | None,
+        fallback_reason: str,
+        latency_ms: int,
+    ) -> None:
+        if response is None:
+            for candidate in candidates:
+                self._emit_trace(candidate, "decide", "fallback", fallback_reason, latency_ms)
+            return
+        by_id = {candidate.moment_id: candidate for candidate in candidates}
+        for decision in response.decisions:
+            self._emit_trace(
+                by_id[decision.moment_id],
+                "decide",
+                "approved" if decision.keep else "rejected",
+                f"significance={decision.significance:.3f}",
+                latency_ms,
+            )
+
+    def _record_pacing(self, reviewed: list[Moment], emitted: list[Moment]) -> None:
+        emitted_ids = {moment.moment_id for moment in emitted}
+        reviewed_ids = {moment.moment_id for moment in reviewed}
+        for moment in reviewed:
+            if moment.moment_id in emitted_ids:
+                self._emit_trace(moment, "emit", "approved", "selected for output")
+            elif self._deferred is not None and moment.moment_id == self._deferred.moment_id:
+                self._emit_trace(moment, "pace", "retry", "deferred by pacing cap")
+            else:
+                self._emit_trace(moment, "pace", "rejected", "pacing cap")
+        for moment in emitted:
+            if moment.moment_id not in reviewed_ids:
+                self._emit_trace(moment, "emit", "approved", "deferred moment released")
+
+    def _emit_trace(
+        self,
+        moment: Moment,
+        action: str,
+        status: TraceStatus,
+        detail: str,
+        latency_ms: int = 0,
+    ) -> None:
+        if self._record_trace is None:
+            return
+        self._record_trace(
+            AgentTrace(
+                trace_id=current_trace_id(),
+                match_id=moment.match_id,
+                moment_id=moment.moment_id,
+                agent="detector",
+                action=action,
+                status=status,
+                latency_ms=latency_ms,
+                tokens_in=0,
+                tokens_out=0,
+                detail=detail,
+                ts=datetime.now(UTC),
+            )
+        )
 
     async def _request_decisions(
         self, candidates: list[Moment], state_summary: Mapping[str, str | float]
