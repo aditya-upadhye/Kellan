@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M1 is tagged; M2 transport, store and metrics are under development on `m2-metrics`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1 and M2 are complete; M3 live match view is in progress on `m3-live-view`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -80,6 +80,17 @@ make sim SCENARIO=late_comeback SEED=42
 | `red_card_press` | Port Halden FC v Kestrel Bay Athletic | Away red card at 55'; hosts raise their press from 60' |
 
 The same scenario and seed always produce byte-identical files. `DATA_DIR` overrides where scenarios are read from and samples are written to (default: the repository's `data/`).
+
+## Live match view
+
+Start the local API and frontend in separate terminals:
+
+```powershell
+uv run --directory backend uvicorn matchlens.api.app:app --host 127.0.0.1 --port 8000
+npm --prefix frontend run dev
+```
+
+Open the Vite URL shown in the frontend terminal. Choose a scenario and playback speed, then kick off a match. The browser connects to the local API for the live score, tracking view, metrics, event feed and match controls. No Azure resources or LLM credentials are required.
 
 ## Replaying and computing metrics
 
