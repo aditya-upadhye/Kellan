@@ -2,7 +2,7 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] — M4 deterministic moment detection
+## [m4] — LLM layer and deterministic moment detection
 
 ### Added
 
@@ -15,7 +15,7 @@ All notable changes are recorded here, one section per milestone tag.
 ### Verified
 
 - Full tracking matches across `balanced`, `late_comeback` and `red_card_press` with seeds 1, 2 and 3 produced 23–30 moments in both off and mock modes. Mock decisions completed without fallback. The five-minute noncritical interval was chosen after the two-minute and four-minute intervals exceeded the 30-moment target.
-- Console span export and trace correlation pass focused tests. The live Foundry call remains pending a project and model deployment.
+- Console span export and trace correlation pass focused tests. On 2026-10-11 at 22:09 UTC, `scripts/check_foundry.py` made a successful local structured-output call to the `gpt-4.1-mini` Foundry deployment. The provider reported model `gpt-4.1-mini-2025-04-14`, 49 input tokens and 6 output tokens. Its provider span and MatchLens LLM span printed through the console exporter with the same trace ID, and the script printed `Foundry call succeeded`.
 
 ## [m3] — Live match view
 

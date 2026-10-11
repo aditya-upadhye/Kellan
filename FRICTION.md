@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-018 · 2026-10-11 · Foundry data-plane role
+
+**A CLI-created Foundry resource did not grant the signed-in user Foundry User access**
+
+- **What happened:** The Foundry portal reported that the user lacks permission to create agents in the project. Microsoft documents that Foundry User is not assigned automatically when the resource is created through CLI.
+- **Impact:** The portal blocked hosted agent creation, and local model access needed verification.
+- **Resolution:** Foundry User assignment was handled through Azure portal Access control (IAM). A subsequent local structured-output call to the deployed model succeeded. Portal agent creation was not retested because MatchLens calls the model directly.
+- **Status:** Resolved for MatchLens model access
+
 ## F-017 · 2026-10-11 · uv cache and package access
 
 **Dependency resolution could not use the default cache or reach PyPI from the sandbox**
