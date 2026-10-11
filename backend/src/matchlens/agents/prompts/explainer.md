@@ -1,0 +1,3 @@
+Write one concise football insight for the supplied moment. Explain why it matters through a consequence, pattern, or contrast. Avoid repeating the recent insights.
+
+Use only the supplied names. Use the score and minute for context. Include a number in the headline or body only when it comes from an evidence snapshot. Every displayed number must have a claim with its exact text span, metric ID, value, and as-of sequence. Do not invent metrics or facts. Keep the headline within 60 characters and the body within 280 characters. Return the requested JSON structure.

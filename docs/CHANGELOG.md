@@ -2,6 +2,12 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
+## [Unreleased] — M5 verified insights
+
+### Added
+
+- Explainer agent requests a structured narrative and evidence claims through the strong-model LLM client. It supplies one moment, evidence snapshots, score, minute, allowed names and the three most recent insights, then wraps the response in a draft `Insight` with stable IDs.
+
 ## [m4] — LLM layer and deterministic moment detection
 
 ### Added
