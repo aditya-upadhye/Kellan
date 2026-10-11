@@ -2,7 +2,14 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] — M3 live match view
+## [Unreleased] — M4 deterministic moment detection
+
+### Added
+
+- Deterministic goal, card, big chance, momentum, pressing, control, speed and milestone triggers, plus periodic player spotlights.
+- Candidate merging for nearby moments with matching types and subjects; goals and cards remain independent.
+
+## [m3] — Live match view
 
 ### Added
 

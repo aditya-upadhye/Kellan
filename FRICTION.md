@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-016 · 2026-10-11 · Workspace access permissions
+
+**Repository ownership and pytest cache permissions blocked the default checks**
+
+- **What happened:** Git rejected the workspace as dubious because its owner SID differs from the current process. Pytest also could not write its cache under `backend/.pytest_cache`.
+- **Impact:** Git status and the default pytest invocation could not run cleanly in this session.
+- **Resolution:** Git commands used a command-scoped `safe.directory` setting, and pytest ran with its cache provider disabled. No global Git configuration was changed.
+- **Status:** Resolved
+
 ## F-015 · 2026-10-11 · Docker Engine
 
 **Docker Compose cannot start because the Docker Engine is stopped**
