@@ -2,6 +2,15 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-015 · 2026-10-11 · Docker Engine
+
+**Docker Compose cannot start because the Docker Engine is stopped**
+
+- **What happened:** `docker compose config --quiet` succeeds, but `docker compose up --build -d` cannot connect to `npipe:////./pipe/docker_engine`. The `com.docker.service` Windows service is stopped.
+- **Impact:** The local container images and full-stack Compose run cannot be verified in this environment yet.
+- **Resolution:** Starting Docker Desktop brought the engine pipe online; the Compose images built and both services started. The API health check passed.
+- **Status:** Resolved
+
 ## F-014 · 2026-10-04 · Pyright `extraPaths`
 
 **Adding `extraPaths` broke resolution of the project's own package**

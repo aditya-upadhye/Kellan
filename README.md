@@ -92,6 +92,14 @@ npm --prefix frontend run dev
 
 Open the Vite URL shown in the frontend terminal. Choose a scenario and playback speed, then kick off a match. The browser connects to the local API for the live score, tracking view, metrics, event feed and match controls. No Azure resources or LLM credentials are required.
 
+To run the full stack with Docker instead:
+
+```powershell
+docker compose up --build
+```
+
+Open [http://localhost:8080](http://localhost:8080). The web container serves the built UI and proxies API and WebSocket requests to the backend. Set `MATCHLENS_WEB_PORT` to use a different host port; the default is `8080`.
+
 ## Replaying and computing metrics
 
 Replay a saved match through the local queue and in-memory historical metric store:
