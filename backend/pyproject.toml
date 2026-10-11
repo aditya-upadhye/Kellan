@@ -18,6 +18,10 @@ azure = [
     "azure-cosmos[aio]==4.17.1",
     "azure-identity==1.26.0",
 ]
+foundry = [
+    "agent-framework-foundry==1.14.1",
+    "azure-identity==1.26.0",
+]
 
 [project.scripts]
 matchlens = "matchlens.cli:main"
@@ -58,6 +62,7 @@ ignore = ["PLR2004"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0913"]
+"src/matchlens/llm/client.py" = ["PLR0913"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"

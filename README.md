@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M1 and M2 are complete; M3 live match view is in progress on `m3-live-view`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1, M2 and M3 are complete; M4 is in progress on `m4-detector`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -59,6 +59,15 @@ Each cloud dependency sits behind an interface with a local default:
 | `STORE` | `memory` | `cosmos` |
 
 Selecting a cloud mode requires its endpoint settings; startup fails fast if they are missing.
+
+For Foundry mode, install the optional provider, sign in with Azure CLI, and set `LLM_MODE=foundry`, `FOUNDRY_PROJECT_ENDPOINT`, `FAST_MODEL` and `STRONG_MODEL` in `.env`:
+
+```powershell
+uv sync --directory backend --locked --extra foundry
+az login
+```
+
+The Foundry adapter uses the [Microsoft Agent Framework Foundry provider](https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/model-providers/microsoft-foundry). The default mock and off modes do not require Azure credentials or the optional package.
 
 ```bash
 uv run --directory backend matchlens info   # print the active modes
