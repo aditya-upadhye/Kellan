@@ -8,6 +8,7 @@ All notable changes are recorded here, one section per milestone tag.
 
 - Deterministic goal, card, big chance, momentum, pressing, control, speed and milestone triggers, plus periodic player spotlights.
 - Candidate merging for nearby moments with matching types and subjects; goals and cards remain independent.
+- Detector agent reviews pending candidates every 15 match seconds, passes goals and cards immediately, and caps noncritical cues at one per two match minutes. Disabled, unavailable or invalid model responses fall back to rule significance.
 
 ## [m3] — Live match view
 
