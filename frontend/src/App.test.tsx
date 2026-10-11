@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('App', () => {
-  it('shows the product name', () => {
+  it('renders the live match kickoff screen', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'MatchLens' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'MatchLens home' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'See the game take shape.' })).toBeInTheDocument()
   })
 })

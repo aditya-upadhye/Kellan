@@ -2,7 +2,15 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] — M2 transport, store and metrics
+## [Unreleased] — M3 live match view
+
+### Added
+
+- Local FastAPI match lifecycle endpoints and a WebSocket stream for status, events, tracking frames and metric snapshots.
+- React live match view with scenario and seed selection, playback controls, scoreboard, pitch tracking, metrics and event feed. Frontend contract types are generated from the committed JSON Schemas.
+- Docker Compose stack with a health-checked API, static frontend, and HTTP/WebSocket proxy for a local full-stack demo.
+
+## [m2] — Transport, store and metrics
 
 ### Added
 
