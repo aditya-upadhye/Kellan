@@ -12,7 +12,7 @@ from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 
 def settings(mode: LLMMode = LLMMode.MOCK) -> Settings:
-    return Settings(llm_mode=mode, _env_file=None)
+    return Settings.model_validate({"llm_mode": mode})
 
 
 def metadata() -> MatchMetadata:

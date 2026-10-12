@@ -1,4 +1,5 @@
 import asyncio
+from typing import TYPE_CHECKING
 
 from matchlens.agents.recap import RecapAgent
 from matchlens.llm.runtime import RuntimeLLMClient
@@ -8,10 +9,13 @@ from matchlens.profiles import DEFAULT_PROFILES
 from matchlens.store.memory import MemoryMetricStore
 from support.agent_workflow import settings
 
+if TYPE_CHECKING:
+    from matchlens.models.traces import AgentTrace
+
 
 def test_recap_uses_strong_model_and_verifies_snapshot_claims() -> None:
     async def run() -> None:
-        traces = []
+        traces: list[AgentTrace] = []
         config = settings()
         client = RuntimeLLMClient(config, traces.append)
         store = MemoryMetricStore()
@@ -45,7 +49,7 @@ def test_recap_uses_strong_model_and_verifies_snapshot_claims() -> None:
 def test_recap_off_mode_returns_verified_qualitative_fallback() -> None:
     async def run() -> None:
         config = settings().model_copy(update={"llm_mode": "off"})
-        traces = []
+        traces: list[AgentTrace] = []
         store = MemoryMetricStore()
         recap = await RecapAgent(
             RuntimeLLMClient(config, traces.append), "strong-model", "match-a", traces.append

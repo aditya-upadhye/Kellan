@@ -1,11 +1,12 @@
 import asyncio
 from collections.abc import Iterator
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
 
 from matchlens.api.app import create_app
-from matchlens.api.matches import MatchSession, session_stream
+from matchlens.api.matches import MatchManager, MatchSession, session_stream
 from matchlens.models.cues import Recap
 from matchlens.models.envelope import StreamEnvelope
 from matchlens.profiles import DEFAULT_PROFILES
@@ -14,7 +15,8 @@ from support.agent_workflow import metadata
 
 @pytest.fixture
 def client() -> Iterator[tuple[TestClient, str]]:
-    test_client = TestClient(create_app())
+    app = create_app()
+    test_client = TestClient(app)
     session = MatchSession(metadata(), 10, DEFAULT_PROFILES[:2])
     session.recaps["analyst_en", "half"] = Recap(
         recap_id="recap-half",
@@ -27,7 +29,8 @@ def client() -> Iterator[tuple[TestClient, str]]:
         claims=[],
         status="verified",
     )
-    test_client.app.state.match_manager.sessions[session.metadata.match_id] = session
+    manager = cast("MatchManager", app.state.match_manager)
+    manager.sessions[session.metadata.match_id] = session
     try:
         yield test_client, session.metadata.match_id
     finally:
