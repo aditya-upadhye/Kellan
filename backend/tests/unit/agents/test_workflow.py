@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import pytest
@@ -62,6 +63,28 @@ def test_injected_claim_is_rejected_before_cues_are_created() -> None:
         assert any(
             trace.status == "rejected" and "value_mismatch" in trace.detail for trace in traces
         )
+
+    asyncio.run(run())
+
+
+def test_moment_work_can_arm_a_single_fact_checker_fault() -> None:
+    async def run() -> None:
+        traces: list[AgentTrace] = []
+        config = settings()
+        client = RuntimeLLMClient(config, traces.append)
+        work = replace(await goal_work(), fault_inject_rate=1.0)
+        result = await insight_workflow(
+            WorkflowServices(client, config, metadata(), DEFAULT_PROFILES[:1], traces.append)
+        ).run(work)
+        output = result.get_outputs()[0]
+
+        assert isinstance(output, MomentResult)
+        assert output.insight.status == "verified"
+        assert output.insight.attempts == 2
+        rejected = next(trace for trace in traces if trace.status == "rejected")
+        assert rejected.draft_text is not None
+        assert "value_mismatch" in rejected.detail
+        assert sum(trace.action == "inject" for trace in traces) == 1
 
     asyncio.run(run())
 

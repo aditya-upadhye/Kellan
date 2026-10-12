@@ -414,6 +414,8 @@ def test_fault_injection_is_rejected_then_revision_is_approved() -> None:
         ("verify", "approved"),
     ]
     assert "value_mismatch" in traces[1].detail
+    assert traces[1].draft_text is not None
+    assert "Expected goals" in traces[1].draft_text
 
 
 def test_fault_injection_still_falls_back_if_revisions_are_wrong() -> None:

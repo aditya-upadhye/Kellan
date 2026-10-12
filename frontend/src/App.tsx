@@ -5,6 +5,7 @@ import type { MetricSnapshot } from './generated/MetricSnapshot'
 import type { StreamEnvelope } from './generated/StreamEnvelope'
 import type { TrackingFrame } from './generated/TrackingFrame'
 import type { ViewerProfile } from './generated/ViewerProfile'
+import type { AgentTrace } from './generated/AgentTrace'
 
 type PlaybackSpeed = 1 | 10 | 30 | 60 | 'max'
 type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error'
@@ -21,6 +22,7 @@ interface MatchResponse {
   score: { home: number; away: number }
   speed: PlaybackSpeed
   error: string | null
+  fault_inject_next?: boolean
 }
 
 interface MatchStateResponse {
@@ -40,15 +42,15 @@ const speeds: PlaybackSpeed[] = [1, 10, 30, 60, 'max']
 const spanishEventLabels: Partial<Record<MatchEvent['type'], string>> = {
   kickoff: 'Inicio',
   pass: 'Pase',
-  carry: 'Conducción',
+  carry: 'ConducciÃ³n',
   tackle: 'Entrada',
-  interception: 'Intercepción',
-  pressure: 'Presión',
+  interception: 'IntercepciÃ³n',
+  pressure: 'PresiÃ³n',
   duel: 'Duelo',
   foul: 'Falta',
   substitution: 'Cambio',
-  possession_change: 'Cambio de posesión',
-  ball_out: 'Balón fuera',
+  possession_change: 'Cambio de posesiÃ³n',
+  ball_out: 'BalÃ³n fuera',
   period_end: 'Fin del periodo',
   match_end: 'Fin del partido',
 }
@@ -60,7 +62,7 @@ function formatClock(period: 1 | 2, ms: number): string {
 }
 
 function formatMetric(metric: MetricSnapshot | undefined, digits = 1): string {
-  if (!metric) return '—'
+  if (!metric) return 'â€”'
   const unit = metric.unit === '%' || metric.unit === 'km/h' || metric.unit === 'm' ? metric.unit : ''
   return `${metric.value.toFixed(digits)}${unit}`
 }
@@ -91,6 +93,8 @@ function App() {
   const [frame, setFrame] = useState<TrackingFrame | null>(null)
   const [metrics, setMetrics] = useState<Map<string, MetricSnapshot>>(new Map())
   const [events, setEvents] = useState<MatchEventData[]>([])
+  const [traces, setTraces] = useState<AgentTrace[]>([])
+  const [faultArmed, setFaultArmed] = useState(false)
   const [socketState, setSocketState] = useState<'connecting' | 'live' | 'offline'>('offline')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -193,6 +197,12 @@ function App() {
         )
         return
       }
+      if (envelope.kind === 'trace' && isRecord(data)) {
+        const trace = data as unknown as AgentTrace
+        setTraces((current) => [...current.slice(-79), trace])
+        if (trace.action === 'fault_injection') setFaultArmed(false)
+        return
+      }
       if (envelope.kind === 'event' && isRecord(data)) {
         const event = data as unknown as MatchEventData
         setEvents((current) => [...current.slice(-7), event])
@@ -244,6 +254,8 @@ function App() {
     setMatch(null)
     setFrame(null)
     setEvents([])
+    setTraces([])
+    setFaultArmed(false)
     setMetrics(new Map())
     try {
       const response = await fetch('/api/matches', {
@@ -262,6 +274,7 @@ function App() {
       const matchResult = (await matchResponse.json()) as MatchResponse
       const stateResult = (await stateResponse.json()) as MatchStateResponse
       setMatch(matchResult)
+      setFaultArmed(matchResult.fault_inject_next ?? false)
       setSpeed(matchResult.speed)
       setMetrics(
         new Map(stateResult.metrics.map((item) => [`${item.metric_id}:${item.window}`, item])),
@@ -275,18 +288,24 @@ function App() {
     }
   }
 
-  async function control(action: 'pause' | 'resume' | 'speed', value?: PlaybackSpeed) {
+  async function control(
+    action: 'pause' | 'resume' | 'speed' | 'inject_fault',
+    value?: PlaybackSpeed | boolean,
+  ) {
     if (!matchId) return
     setError(null)
     try {
       const response = await fetch(`/api/matches/${matchId}/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...(value === undefined ? {} : { value }) }),
+        body: JSON.stringify(
+          action === 'inject_fault' ? { action, enabled: value } : { action, ...(value === undefined ? {} : { value }) },
+        ),
       })
       const result = (await response.json()) as {
         status?: MatchStatus
         speed?: PlaybackSpeed
+        fault_inject_next?: boolean
         detail?: string
       }
       if (!response.ok) throw new Error(result.detail ?? 'Could not update match controls')
@@ -300,6 +319,9 @@ function App() {
           : current,
       )
       if (result.speed) setSpeed(result.speed)
+      if (typeof result.fault_inject_next === 'boolean') {
+        setFaultArmed(result.fault_inject_next)
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Control request failed')
     }
@@ -315,7 +337,7 @@ function App() {
           <span>match<span className="brand-accent">lens</span></span>
         </a>
         <div className="topbar-meta">
-          <span className="season-label">MERIDIAN LEAGUE · LIVE SIMULATION</span>
+          <span className="season-label">MERIDIAN LEAGUE Â· LIVE SIMULATION</span>
           <span className={`connection-state ${socketState}`}>
             <span className="connection-dot" />
             {socketState === 'live' ? 'CONNECTED' : socketState === 'connecting' ? 'CONNECTING' : 'LOCAL MODE'}
@@ -397,7 +419,7 @@ function App() {
             <select id="scenario" value={scenario} onChange={(event) => setScenario(event.target.value)}>
               {scenarios.map((item) => <option key={item.name} value={item.name}>{item.name.replaceAll('_', ' ')}</option>)}
             </select>
-            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenarios…'}</p>
+            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenariosâ€¦'}</p>
             <div className="form-row">
               <div className="seed-field">
                 <label htmlFor="seed">RANDOM SEED</label>
@@ -406,15 +428,15 @@ function App() {
               <div className="speed-field">
                 <label htmlFor="kickoff-speed">PLAYBACK SPEED</label>
                 <select id="kickoff-speed" value={speed} onChange={(event) => setSpeed(event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>)}>
-                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}
+                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}
                 </select>
               </div>
             </div>
             <button className="kickoff-button" onClick={() => void startMatch()} disabled={busy || scenarios.length === 0}>
-              <span>{busy ? 'PREPARING FIXTURE…' : 'KICK OFF MATCH'}</span>
-              <span className="button-arrow">↗</span>
+              <span>{busy ? 'PREPARING FIXTUREâ€¦' : 'KICK OFF MATCH'}</span>
+              <span className="button-arrow">â†—</span>
             </button>
-            <p className="offline-note"><span>●</span> Runs locally · No cloud account required</p>
+            <p className="offline-note"><span>â—</span> Runs locally Â· No cloud account required</p>
           </div>
         </section>
       )}
@@ -434,7 +456,7 @@ function App() {
               <span>{match.metadata.away.name}</span>
               <span className="team-crest crest-away" style={{ background: match.metadata.away.colors.primary, color: match.metadata.away.colors.secondary }}>{match.metadata.away.short_name}</span>
             </div>
-            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>—</i><strong>{formatMetric(awayXg, 2)}</strong></div>
+            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>â€”</i><strong>{formatMetric(awayXg, 2)}</strong></div>
           </section>
 
           <section
@@ -463,7 +485,7 @@ function App() {
             <div className="live-main">
               <div className="pitch-panel">
                 <div className="panel-heading">
-                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">·</span> PERIOD {match.clock.period}</div>
+                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">Â·</span> PERIOD {match.clock.period}</div>
                   <span className="frame-label">{frame ? `FRAME ${frame.frame_seq.toString().padStart(4, '0')}` : 'AWAITING TRACKING'}</span>
                 </div>
                 <div className="pitch-wrap">
@@ -497,7 +519,7 @@ function App() {
                   </svg>
                   {!frame && <div className="pitch-loading"><span className="loading-ring" />{match.status === 'starting' ? 'Generating match data' : 'Waiting for first tracking frame'}</div>}
                 </div>
-                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : '—'}</b></span></div>
+                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : 'â€”'}</b></span></div>
               </div>
 
               <div className="metrics-panel">
@@ -513,35 +535,77 @@ function App() {
 
             <aside className="match-sidebar">
               <div className="control-panel">
-                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">● {match.status.toUpperCase()}</span></div>
+                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">â— {match.status.toUpperCase()}</span></div>
                 <div className="control-buttons">
                   <button className="play-control" onClick={() => void control(match.status === 'paused' ? 'resume' : 'pause')} disabled={match.status === 'complete' || match.status === 'starting'} aria-label={match.status === 'paused' ? 'Resume match' : 'Pause match'}>
-                    {match.status === 'paused' ? <span className="play-icon">▶</span> : <span className="pause-icon"><i /><i /></span>}
+                    {match.status === 'paused' ? <span className="play-icon">â–¶</span> : <span className="pause-icon"><i /><i /></span>}
                     {match.status === 'paused' ? 'RESUME' : 'PAUSE'}
                   </button>
-                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}</select></label>
+                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}</select></label>
                 </div>
-                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>＋ NEW MATCH</button>
+                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>ï¼‹ NEW MATCH</button>
               </div>
 
               <div className="timeline-panel">
                 <div className="panel-heading"><span>MATCH FEED</span><span className="feed-count">{events.length.toString().padStart(2, '0')}</span></div>
-                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">⌁</span><p>Match events will appear here as the game unfolds.</p></div>}
+                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">âŒ</span><p>Match events will appear here as the game unfolds.</p></div>}
               </div>
-              <div className="sidebar-footnote"><span>ⓘ</span> Every event and metric is generated from the match simulation.</div>
+              <section className="agent-panel" aria-label="Agent activity">
+                <div className="panel-heading">
+                  <span>AGENT ACTIVITY</span>
+                  <span className="feed-count">{traces.length.toString().padStart(2, '0')}</span>
+                </div>
+                <div className="fault-control">
+                  <div>
+                    <strong>Inject a wrong stat</strong>
+                    <span>Arm fault injection for the next moment.</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={faultArmed ? 'fault-toggle armed' : 'fault-toggle'}
+                    aria-pressed={faultArmed}
+                    disabled={!isLive}
+                    onClick={() => void control('inject_fault', !faultArmed)}
+                  >
+                    {faultArmed ? 'CANCEL' : 'ARM'}
+                  </button>
+                </div>
+                <div className="agent-trace-list" aria-live="polite">
+                  {traces.length ? traces.slice(-10).reverse().map((trace, index) => (
+                    <TraceRow key={`${trace.trace_id}-${index}`} trace={trace} />
+                  )) : <p className="trace-empty">Agent decisions will appear here.</p>}
+                </div>
+              </section>
+              <div className="sidebar-footnote"><span>â“˜</span> Every event and metric is generated from the match simulation.</div>
             </aside>
           </section>
         </>
       )}
 
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">×</button></div>}
-      <footer className="app-footer"><span>MATCHLENS <i>·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>·</i> BUILT FOR THE GAME</span></footer>
+      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">Ã—</button></div>}
+      <footer className="app-footer"><span>MATCHLENS <i>Â·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>Â·</i> BUILT FOR THE GAME</span></footer>
     </main>
   )
 }
 
+function TraceRow({ trace }: { trace: AgentTrace }) {
+  const rejected = trace.status === 'rejected'
+  return (
+    <article className={rejected ? 'trace-row rejected' : 'trace-row'}>
+      <div className="trace-row-heading">
+        <span>{trace.agent.replaceAll('_', ' ')}</span>
+        <span>{trace.action.replaceAll('_', ' ')}</span>
+        <strong>{trace.status}</strong>
+      </div>
+      {trace.moment_id && <p className="trace-moment">{trace.moment_id}</p>}
+      <p className="trace-detail">{trace.detail}</p>
+      {rejected && trace.draft_text && <blockquote>{trace.draft_text}</blockquote>}
+    </article>
+  )
+}
+
 function MetricCard({ label, home, away, homeName, awayName }: { label: string; home: string; away: string; homeName: string; awayName: string }) {
-  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>—</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
+  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>â€”</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
 }
 
 function ProfileView({
@@ -581,7 +645,7 @@ function ProfileView({
 
   let summary: string
   if (profile.mode === 'analyst') {
-    summary = `xG ${formatMetric(homeXg, 2)}–${formatMetric(awayXg, 2)} · ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesión' : 'possession'}`
+    summary = `xG ${formatMetric(homeXg, 2)}â€“${formatMetric(awayXg, 2)} Â· ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesiÃ³n' : 'possession'}`
   } else if (profile.mode === 'player_focus') {
     const favoritePlayer = [
       ...match.metadata.home.players,
@@ -593,7 +657,7 @@ function ProfileView({
     const involved = latestEvent?.player_id === profile.favorite_player_id
     summary = involved
       ? spanish
-        ? `${favoritePlayer?.name ?? profile.label} aparece en la acción más reciente.`
+        ? `${favoritePlayer?.name ?? profile.label} aparece en la acciÃ³n mÃ¡s reciente.`
         : `${favoritePlayer?.name ?? profile.label} appears in the latest action.`
       : favoriteEvent
         ? spanish
@@ -643,7 +707,7 @@ function englishEventSummary(
   if (event.type === 'goal') return `A goal for ${team ?? 'the match'} changes the score.`
   if (event.type === 'card') return `A card adds pressure${team ? ` for ${team}` : ''}.`
   if (event.type === 'shot') return `A shot tests the defence${team ? ` of ${team}` : ''}.`
-  return `${event.type.replaceAll('_', ' ')}${team ? ` · ${team}` : ''}.`
+  return `${event.type.replaceAll('_', ' ')}${team ? ` Â· ${team}` : ''}.`
 }
 
 function spanishEventSummary(
@@ -651,12 +715,12 @@ function spanishEventSummary(
   homeName: string,
   awayName: string,
 ): string {
-  if (!event) return 'Esperando la primera acción del partido.'
+  if (!event) return 'Esperando la primera acciÃ³n del partido.'
   const team = event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : null
   if (event.type === 'goal') return `Gol de ${team ?? 'el partido'}; cambia el marcador.`
-  if (event.type === 'card') return `Una tarjeta añade presión${team ? ` a ${team}` : ''}.`
+  if (event.type === 'card') return `Una tarjeta aÃ±ade presiÃ³n${team ? ` a ${team}` : ''}.`
   if (event.type === 'shot') return `Un disparo pone a prueba la defensa${team ? ` de ${team}` : ''}.`
-  return `${spanishEventLabels[event.type] ?? 'Acción'}${team ? ` · ${team}` : ''}.`
+  return `${spanishEventLabels[event.type] ?? 'AcciÃ³n'}${team ? ` Â· ${team}` : ''}.`
 }
 
 function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeName: string; awayName: string }) {
@@ -664,8 +728,8 @@ function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeNa
   const label = event.type.replaceAll('_', ' ').toUpperCase()
   return <article className={`event-row${isGoal ? ' goal-event' : ''}`}>
     <span className="event-time">{formatClock(event.clock.period, event.clock.ms)}</span>
-    <span className="event-symbol">{isGoal ? '⚽' : event.type === 'card' ? '▰' : event.type === 'shot' ? '↗' : '·'}</span>
-    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` · ${event.player_id.toUpperCase()}` : ''}</span></div>
+    <span className="event-symbol">{isGoal ? 'âš½' : event.type === 'card' ? 'â–°' : event.type === 'shot' ? 'â†—' : 'Â·'}</span>
+    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` Â· ${event.player_id.toUpperCase()}` : ''}</span></div>
   </article>
 }
 

@@ -10,10 +10,12 @@ All notable changes are recorded here, one section per milestone tag.
 - Wired live workflow execution into the match lifecycle with per-moment metric snapshots, bounded concurrent generation, stale-result cancellation, sequence-ordered delivery, cue scheduling, and trace streaming.
 - Added match profile selection, profile-filtered WebSocket cues, cue history and agent trace endpoints, plus a runtime `llm_mode` control for switching a running match to safe fallbacks.
 - Added an immutable metric-store snapshot so verification uses the evidence available when a moment was detected.
+- Added verified half-time and full-time recaps per profile. Half-time processing uses a period-end snapshot and sequence cutoff; recaps are replayed through the profile-filtered WebSocket and exposed through the recap endpoint.
+- Added a live agent activity panel with rejected draft text and verifier errors, plus a one-shot fault injection control for the next moment.
 
 ### Verified
 
-- Ruff and Pyright pass for the backend source and new workflow modules. Match-level API behavior remains to be verified in the next checkpoint.
+- Backend suite, including live recap, API fault control and trace contract coverage, passes with 453 tests and 2 Azure tests deselected. Ruff and Pyright pass; frontend tests, lint and typecheck pass.
 
 ## [m6] - Personalization
 

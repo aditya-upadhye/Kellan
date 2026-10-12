@@ -9,5 +9,6 @@ export interface AgentTrace {
   tokens_in: number
   tokens_out: number
   detail: string
+  draft_text: string | null
   ts: string
 }

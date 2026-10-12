@@ -71,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "error": session.error,
             "profiles": [profile.profile_id for profile in session.profiles],
             "llm_mode": session.llm_mode,
+            "fault_inject_next": session.fault_inject_next,
         }
 
     @app.get("/api/matches/{match_id}/state")
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": session.state,
             "speed": session.speed,
             "llm_mode": session.llm_mode,
+            "fault_inject_next": session.fault_inject_next,
         }
 
     @app.get("/api/matches/{match_id}/cues")

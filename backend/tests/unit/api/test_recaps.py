@@ -38,7 +38,7 @@ def test_recap_api_filters_by_profile_and_kind(client: tuple[TestClient, str]) -
     test_client, match_id = client
     response = test_client.get(f"/api/matches/{match_id}/recap?profile_id=analyst_en&kind=half")
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert [item["recap_id"] for item in response.json()["recaps"]] == ["recap-half"]
 
 
@@ -47,6 +47,19 @@ def test_recap_api_rejects_profiles_not_active_in_match(client: tuple[TestClient
     response = test_client.get(f"/api/matches/{match_id}/recap?profile_id=casual_es")
 
     assert response.status_code == 422
+
+
+def test_fault_control_arms_exactly_one_pending_injection(
+    client: tuple[TestClient, str],
+) -> None:
+    test_client, match_id = client
+    response = test_client.post(
+        f"/api/matches/{match_id}/control",
+        json={"action": "inject_fault", "enabled": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["fault_inject_next"] is True
 
 
 def test_recap_stream_replays_only_selected_profile() -> None:

@@ -49,6 +49,7 @@ class MomentWork:
     store: MetricStore
     score: dict[TeamSide, int]
     recent: tuple[Insight, ...] = ()
+    fault_inject_rate: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +116,11 @@ def insight_workflow(services: WorkflowServices) -> Workflow:
             ExplainerAgent(client, settings.strong_model or "mock-strong"),
             work.store,
             services.record_trace,
-            fault_inject_rate=settings.fault_inject_rate,
+            fault_inject_rate=(
+                settings.fault_inject_rate
+                if work.fault_inject_rate is None
+                else work.fault_inject_rate
+            ),
         )
         insight = await checker.create_insight(
             work.moment,

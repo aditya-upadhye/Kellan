@@ -118,9 +118,7 @@ describe('App', () => {
     }
 
     vi.stubGlobal('WebSocket', TestWebSocket)
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const path = String(input)
         if (path === '/api/profiles') return jsonResponse(profiles)
         if (path === '/api/scenarios') {
@@ -137,14 +135,18 @@ describe('App', () => {
             score: { home: 0, away: 0 },
             speed: 10,
             error: null,
+            fault_inject_next: false,
           })
         }
         if (path === '/api/matches/match-1/state') {
           return jsonResponse({ status: 'running', metrics: [] })
         }
+        if (path === '/api/matches/match-1/control' && init?.method === 'POST') {
+          return jsonResponse({ status: 'running', speed: 10, fault_inject_next: true })
+        }
         return jsonResponse({})
-      }),
-    )
+      })
+    vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'COMPARE PROFILES' }))
@@ -181,5 +183,44 @@ describe('App', () => {
 
     expect(within(comparison).getAllByText('1 : 0')).toHaveLength(2)
     expect(within(comparison).getByText('Gol de KBA; cambia el marcador.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'ARM' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'CANCEL' })).toHaveAttribute('aria-pressed', 'true'))
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches/match-1/control',
+      expect.objectContaining({
+        body: JSON.stringify({ action: 'inject_fault', enabled: true }),
+      }),
+    )
+
+    act(() => {
+      sockets[0]?.onmessage?.(
+        new MessageEvent('message', {
+          data: JSON.stringify({
+            kind: 'trace',
+            match_id: 'match-1',
+            data: {
+              trace_id: 'trace-1',
+              match_id: 'match-1',
+              moment_id: 'moment-1',
+              agent: 'fact_checker',
+              action: 'verify',
+              status: 'rejected',
+              latency_ms: 3,
+              tokens_in: 0,
+              tokens_out: 0,
+              detail: 'attempt=1; value_mismatch',
+              draft_text: 'A generated number was wrong.',
+              ts: '2026-10-12T12:00:00Z',
+            },
+          }),
+        }),
+      )
+    })
+
+    const activity = screen.getByRole('region', { name: 'Agent activity' })
+    expect(within(activity).getByText('attempt=1; value_mismatch')).toBeInTheDocument()
+    expect(within(activity).getByText('A generated number was wrong.')).toBeInTheDocument()
+    expect(within(activity).getByText('rejected').closest('.trace-row')).toHaveClass('rejected')
   })
 })

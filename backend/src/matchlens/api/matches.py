@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from time import monotonic
 from typing import Literal, cast
 
-from pydantic import Field
+from pydantic import Field, StrictBool
 
 from matchlens.agents.live import LiveAgentWorkflow
 from matchlens.config import LLMMode, Settings
@@ -26,7 +26,7 @@ from matchlens.store.memory import MemoryMetricStore
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 PlaybackSpeed = Literal[1, 10, 30, 60, "max"]
-ControlAction = Literal["pause", "resume", "speed", "llm_mode"]
+ControlAction = Literal["pause", "resume", "speed", "llm_mode", "inject_fault"]
 
 
 class StartMatchRequest(Contract):
@@ -43,6 +43,7 @@ class StartMatchRequest(Contract):
 class MatchControlRequest(Contract):
     action: ControlAction
     value: PlaybackSpeed | LLMMode | None = None
+    enabled: StrictBool | None = None
 
 
 @dataclass(slots=True)
@@ -51,6 +52,7 @@ class MatchSession:
     speed: PlaybackSpeed
     profiles: tuple[ViewerProfile, ...] = DEFAULT_PROFILES
     llm_mode: LLMMode = LLMMode.MOCK
+    fault_inject_requested: bool = False
     state: Literal["starting", "running", "paused", "complete", "error"] = "starting"
     clock: dict[str, int] = field(default_factory=lambda: {"period": 1, "ms": 0})
     events: list[BaseEvent] = field(default_factory=list[BaseEvent])
@@ -84,6 +86,12 @@ class MatchSession:
             if isinstance(event, GoalEvent):
                 goals[event.team_id] += 1
         return goals
+
+    @property
+    def fault_inject_next(self) -> bool:
+        if self.workflow is not None:
+            return self.workflow.fault_injection_armed
+        return self.fault_inject_requested
 
     async def publish(self, message: StreamEnvelope) -> None:
         self.publish_nowait(message)
@@ -184,6 +192,9 @@ class MatchManager:
                 session.store,
                 session.publish_nowait,
             )
+            if session.fault_inject_requested:
+                session.workflow.set_fault_injection(True)
+                session.fault_inject_requested = False
             previous: tuple[int, int] | None = None
             for item in _ordered_inputs(match):
                 await session.resume_gate.wait()
@@ -256,6 +267,8 @@ class MatchManager:
             session.llm_mode = request.value
             if session.workflow is not None:
                 session.workflow.client.set_mode(request.value)
+        elif request.action == "inject_fault":
+            _set_fault_injection(session, request.enabled)
         await session.publish(_status(session))
 
     def get(self, match_id: str) -> MatchSession:
@@ -270,6 +283,15 @@ class MatchManager:
             if session.task and not session.task.done():
                 session.task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _set_fault_injection(session: MatchSession, value: object) -> None:
+    if type(value) is not bool:
+        raise ValueError("fault injection control requires a boolean value")
+    if session.workflow is not None:
+        session.workflow.set_fault_injection(value)
+    else:
+        session.fault_inject_requested = value
 
 
 def _ordered_inputs(match: SimulatedMatch) -> list[BaseEvent | TrackingFrame]:

@@ -77,6 +77,7 @@ class LiveAgentWorkflow:
             profile.profile_id: {} for profile in profiles
         }
         self._recap_tasks: set[asyncio.Task[None]] = set()
+        self._fault_inject_next = False
         self._last_review = 0
         self._last_admitted = 0
         self._seen: set[str] = set()
@@ -121,6 +122,13 @@ class LiveAgentWorkflow:
             task.add_done_callback(self._recap_tasks.discard)
         self._discard_stale_contexts()
         await asyncio.sleep(0)
+
+    def set_fault_injection(self, enabled: bool) -> None:
+        self._fault_inject_next = enabled
+
+    @property
+    def fault_injection_armed(self) -> bool:
+        return self._fault_inject_next
 
     async def _detect(self) -> None:
         while True:
@@ -167,7 +175,16 @@ class LiveAgentWorkflow:
                 moment.moment_id, "drop", "rejected", "context unavailable or workflow backlog full"
             )
             return
-        work = replace(context, moment=moment, recent=tuple(self.insights[-3:]))
+        fault_inject_rate = 1.0 if self._fault_inject_next else None
+        self._fault_inject_next = False
+        if fault_inject_rate is not None:
+            self._trace(moment.moment_id, "fault_injection", "ok", "armed for this moment")
+        work = replace(
+            context,
+            moment=moment,
+            recent=tuple(self.insights[-3:]),
+            fault_inject_rate=fault_inject_rate,
+        )
         self._last_admitted = moment.seq_end
         task = asyncio.create_task(self._generate(work))
         self._inflight[moment.moment_id] = (moment, task)
@@ -371,6 +388,7 @@ class LiveAgentWorkflow:
             await asyncio.gather(*tuple(self._recap_tasks), return_exceptions=True)
         await self._delivery.join()
         await self._create_recaps("full", self._store.snapshot())
+        self._fault_inject_next = False
         await self.close()
 
     async def close(self) -> None:
