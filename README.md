@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M1, M2 and M3 are complete; M4 is in progress on `m4-detector`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1–M5 are complete; M6 personalization is in progress on `m6-personalization`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -74,6 +74,8 @@ For M4 acceptance, run `uv run --directory backend python scripts/check_m4.py` t
 Run `make eval` to evaluate three scenarios at seeds 1, 2 and 3 in mock mode. It writes [docs/eval-results.md](docs/eval-results.md) and `eval/report.json`. On Windows without Make, run `uv run --directory backend matchlens eval --scenarios all --seeds 1,2,3 --llm mock`. Use `--fault-rate 1.0` to exercise injected claim errors, or `--llm foundry` after installing the Foundry extra and configuring the project and model names. Foundry evaluation makes multiple paid model calls. The M5 harness measures completed insight verification; cue delivery latency will be measured after that pipeline exists.
 
 The API starts a console OpenTelemetry exporter. LLM calls and Detector reviews create spans and `AgentTrace` records with a shared trace ID. These spans appear in the API console when the agent workflow runs.
+
+The profile API exposes the seeded viewer profiles at `GET /api/profiles` and an individual profile at `GET /api/profiles/{profile_id}`. The seeds cover analyst English, casual English, casual Spanish, and player focus.
 
 ```bash
 uv run --directory backend matchlens info   # print the active modes

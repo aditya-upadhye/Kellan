@@ -2,7 +2,17 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] — M5 verified insights
+## [Unreleased] - M6 personalization
+
+### Added
+
+- Added seeded analyst English, casual English, casual Spanish, and player-focus profiles. The API lists profiles at `GET /api/profiles` and retrieves one by ID at `GET /api/profiles/{profile_id}`.
+
+### Verified
+
+- Profile seeds satisfy the strict `ViewerProfile` contract, and API tests cover list, lookup, and unknown IDs.
+
+## [m5] - Verified insights
 
 ### Added
 
