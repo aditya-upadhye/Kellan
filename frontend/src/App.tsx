@@ -4,6 +4,7 @@ import type { MatchMetadata } from './generated/MatchMetadata'
 import type { MetricSnapshot } from './generated/MetricSnapshot'
 import type { StreamEnvelope } from './generated/StreamEnvelope'
 import type { TrackingFrame } from './generated/TrackingFrame'
+import type { ViewerProfile } from './generated/ViewerProfile'
 
 type PlaybackSpeed = 1 | 10 | 30 | 60 | 'max'
 type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error'
@@ -36,6 +37,21 @@ interface MatchEventData {
 }
 
 const speeds: PlaybackSpeed[] = [1, 10, 30, 60, 'max']
+const spanishEventLabels: Partial<Record<MatchEvent['type'], string>> = {
+  kickoff: 'Inicio',
+  pass: 'Pase',
+  carry: 'Conducción',
+  tackle: 'Entrada',
+  interception: 'Intercepción',
+  pressure: 'Presión',
+  duel: 'Duelo',
+  foul: 'Falta',
+  substitution: 'Cambio',
+  possession_change: 'Cambio de posesión',
+  ball_out: 'Balón fuera',
+  period_end: 'Fin del periodo',
+  match_end: 'Fin del partido',
+}
 
 function formatClock(period: 1 | 2, ms: number): string {
   const endMinute = period * 45
@@ -66,6 +82,10 @@ function App() {
   const [scenario, setScenario] = useState('balanced')
   const [seed, setSeed] = useState(42)
   const [speed, setSpeed] = useState<PlaybackSpeed>(10)
+  const [profiles, setProfiles] = useState<ViewerProfile[]>([])
+  const [primaryProfileId, setPrimaryProfileId] = useState('analyst_en')
+  const [secondaryProfileId, setSecondaryProfileId] = useState('casual_en')
+  const [compareProfiles, setCompareProfiles] = useState(false)
   const [matchId, setMatchId] = useState<string | null>(null)
   const [match, setMatch] = useState<MatchResponse | null>(null)
   const [frame, setFrame] = useState<TrackingFrame | null>(null)
@@ -89,6 +109,35 @@ function App() {
       })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : 'API is unavailable')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/profiles')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load viewer profiles')
+        return (await response.json()) as ViewerProfile[]
+      })
+      .then((available) => {
+        if (!active) return
+        setProfiles(available)
+        setPrimaryProfileId((current) =>
+          available.some((profile) => profile.profile_id === current)
+            ? current
+            : (available[0]?.profile_id ?? ''),
+        )
+        setSecondaryProfileId((current) =>
+          available.some((profile) => profile.profile_id === current)
+            ? current
+            : (available.find((profile) => profile.profile_id !== 'analyst_en')?.profile_id ?? ''),
+        )
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Could not load profiles')
       })
     return () => {
       active = false
@@ -175,6 +224,17 @@ function App() {
   const awayPossession = getMetric(metrics, 'team.away.possession_pct')
   const momentum = getMetric(metrics, 'match.momentum')
   const timeline = useMemo(() => events.slice(-5).reverse(), [events])
+  const primaryProfile = profiles.find((profile) => profile.profile_id === primaryProfileId)
+  const secondaryProfile = profiles.find((profile) => profile.profile_id === secondaryProfileId)
+
+  function changePrimaryProfile(profileId: string) {
+    setPrimaryProfileId(profileId)
+    if (secondaryProfileId === profileId) {
+      setSecondaryProfileId(
+        profiles.find((profile) => profile.profile_id !== profileId)?.profile_id ?? '',
+      )
+    }
+  }
 
   async function startMatch() {
     setBusy(true)
@@ -274,6 +334,52 @@ function App() {
         <div className="privacy-chip"><span /> FICTIONAL MATCH DATA</div>
       </section>
 
+      <section className="profile-switcher" aria-label="Viewer profile controls">
+        <label>
+          <span>VIEWER PROFILE</span>
+          <select
+            aria-label="Primary viewer profile"
+            value={primaryProfileId}
+            onChange={(event) => changePrimaryProfile(event.target.value)}
+            disabled={profiles.length === 0}
+          >
+            {profiles.map((profile) => (
+              <option key={profile.profile_id} value={profile.profile_id}>
+                {profile.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className={compareProfiles ? 'compare-toggle active' : 'compare-toggle'}
+          type="button"
+          aria-pressed={compareProfiles}
+          onClick={() => setCompareProfiles((current) => !current)}
+          disabled={profiles.length < 2}
+        >
+          {compareProfiles ? 'HIDE COMPARISON' : 'COMPARE PROFILES'}
+        </button>
+        {compareProfiles && (
+          <label>
+            <span>COMPARE WITH</span>
+            <select
+              aria-label="Comparison viewer profile"
+              value={secondaryProfileId}
+              onChange={(event) => setSecondaryProfileId(event.target.value)}
+            >
+              {profiles
+                .filter((profile) => profile.profile_id !== primaryProfileId)
+                .map((profile) => (
+                  <option key={profile.profile_id} value={profile.profile_id}>
+                    {profile.label}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+        <p>Choose how the same live match is presented.</p>
+      </section>
+
       {!match && (
         <section className="kickoff-card" aria-labelledby="kickoff-title">
           <div className="kickoff-copy">
@@ -329,6 +435,28 @@ function App() {
               <span className="team-crest crest-away" style={{ background: match.metadata.away.colors.primary, color: match.metadata.away.colors.secondary }}>{match.metadata.away.short_name}</span>
             </div>
             <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>—</i><strong>{formatMetric(awayXg, 2)}</strong></div>
+          </section>
+
+          <section
+            className={compareProfiles ? 'profile-views split' : 'profile-views'}
+            aria-label={compareProfiles ? 'Live profile comparison' : 'Live profile view'}
+          >
+            {primaryProfile && (
+              <ProfileView
+                profile={primaryProfile}
+                match={match}
+                metrics={metrics}
+                events={events}
+              />
+            )}
+            {compareProfiles && secondaryProfile && (
+              <ProfileView
+                profile={secondaryProfile}
+                match={match}
+                metrics={metrics}
+                events={events}
+              />
+            )}
           </section>
 
           <section className="live-layout">
@@ -414,6 +542,121 @@ function App() {
 
 function MetricCard({ label, home, away, homeName, awayName }: { label: string; home: string; away: string; homeName: string; awayName: string }) {
   return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>—</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
+}
+
+function ProfileView({
+  profile,
+  match,
+  metrics,
+  events,
+}: {
+  profile: ViewerProfile
+  match: MatchResponse
+  metrics: Map<string, MetricSnapshot>
+  events: MatchEventData[]
+}) {
+  const latestEvent = events.at(-1)
+  const homeName = match.metadata.home.short_name
+  const awayName = match.metadata.away.short_name
+  const homePossession = getMetric(metrics, 'team.home.possession_pct')
+  const awayPossession = getMetric(metrics, 'team.away.possession_pct')
+  const homeXg = getMetric(metrics, 'team.home.xg')
+  const awayXg = getMetric(metrics, 'team.away.xg')
+  const spanish = profile.language === 'es'
+  const status: Record<MatchStatus, string> = spanish
+    ? {
+        starting: 'PREPARANDO',
+        running: 'EN DIRECTO',
+        paused: 'PAUSADO',
+        complete: 'FINALIZADO',
+        error: 'ERROR',
+      }
+    : {
+        starting: 'STARTING',
+        running: 'LIVE',
+        paused: 'PAUSED',
+        complete: 'FULL TIME',
+        error: 'ERROR',
+      }
+
+  let summary: string
+  if (profile.mode === 'analyst') {
+    summary = `xG ${formatMetric(homeXg, 2)}–${formatMetric(awayXg, 2)} · ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesión' : 'possession'}`
+  } else if (profile.mode === 'player_focus') {
+    const favoritePlayer = [
+      ...match.metadata.home.players,
+      ...match.metadata.away.players,
+    ].find((player) => player.player_id === profile.favorite_player_id)
+    const favoriteEvent = [...events]
+      .reverse()
+      .find((event) => event.player_id === profile.favorite_player_id)
+    const involved = latestEvent?.player_id === profile.favorite_player_id
+    summary = involved
+      ? spanish
+        ? `${favoritePlayer?.name ?? profile.label} aparece en la acción más reciente.`
+        : `${favoritePlayer?.name ?? profile.label} appears in the latest action.`
+      : favoriteEvent
+        ? spanish
+          ? `${favoritePlayer?.name ?? profile.label} aparece en un evento reciente.`
+          : `${favoritePlayer?.name ?? profile.label} appears in a recent event.`
+        : spanish
+          ? `No hay eventos recientes de ${favoritePlayer?.name ?? profile.label}.`
+          : `No recent events for ${favoritePlayer?.name ?? profile.label}.`
+  } else {
+    summary = profile.language === 'es'
+      ? spanishEventSummary(latestEvent, homeName, awayName)
+      : englishEventSummary(latestEvent, homeName, awayName)
+  }
+
+  return (
+    <article
+      className={`profile-view profile-${profile.mode} profile-${profile.profile_id}`}
+      data-profile-id={profile.profile_id}
+    >
+      <div className="profile-view-heading">
+        <div>
+          <span className="profile-view-kicker">{spanish ? 'VISTA DE PERFIL' : 'PROFILE VIEW'}</span>
+          <h2>{profile.label}</h2>
+        </div>
+        <span className="profile-status">{status[match.status]}</span>
+      </div>
+      <div className="profile-view-score">
+        <span>{homeName}</span>
+        <strong>{match.score.home} : {match.score.away}</strong>
+        <span>{awayName}</span>
+      </div>
+      <div className="profile-view-footer">
+        <span>{formatClock(match.clock.period, match.clock.ms)}</span>
+        <p>{summary}</p>
+      </div>
+    </article>
+  )
+}
+
+function englishEventSummary(
+  event: MatchEventData | undefined,
+  homeName: string,
+  awayName: string,
+): string {
+  if (!event) return 'Waiting for the first match event.'
+  const team = event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : null
+  if (event.type === 'goal') return `A goal for ${team ?? 'the match'} changes the score.`
+  if (event.type === 'card') return `A card adds pressure${team ? ` for ${team}` : ''}.`
+  if (event.type === 'shot') return `A shot tests the defence${team ? ` of ${team}` : ''}.`
+  return `${event.type.replaceAll('_', ' ')}${team ? ` · ${team}` : ''}.`
+}
+
+function spanishEventSummary(
+  event: MatchEventData | undefined,
+  homeName: string,
+  awayName: string,
+): string {
+  if (!event) return 'Esperando la primera acción del partido.'
+  const team = event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : null
+  if (event.type === 'goal') return `Gol de ${team ?? 'el partido'}; cambia el marcador.`
+  if (event.type === 'card') return `Una tarjeta añade presión${team ? ` a ${team}` : ''}.`
+  if (event.type === 'shot') return `Un disparo pone a prueba la defensa${team ? ` de ${team}` : ''}.`
+  return `${spanishEventLabels[event.type] ?? 'Acción'}${team ? ` · ${team}` : ''}.`
 }
 
 function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeName: string; awayName: string }) {

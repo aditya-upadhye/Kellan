@@ -10,7 +10,9 @@ from matchlens.api.matches import (
     session_stream,
 )
 from matchlens.config import get_settings
+from matchlens.models.profiles import ViewerProfile
 from matchlens.obs import configure_console_tracing
+from matchlens.profiles import DEFAULT_PROFILES, get_profile
 from matchlens.sim.scenarios import load_scenario, scenario_names
 
 
@@ -40,6 +42,17 @@ def create_app() -> FastAPI:
             }
             for name in scenario_names(settings.scenarios_dir)
         ]
+
+    @app.get("/api/profiles", response_model=list[ViewerProfile])
+    async def profiles() -> list[ViewerProfile]:
+        return list(DEFAULT_PROFILES)
+
+    @app.get("/api/profiles/{profile_id}", response_model=ViewerProfile)
+    async def profile(profile_id: str) -> ViewerProfile:
+        selected = get_profile(profile_id)
+        if selected is None:
+            raise HTTPException(status_code=404, detail=f"profile {profile_id!r} was not found")
+        return selected
 
     @app.post("/api/matches", status_code=202)
     async def start_match(request: StartMatchRequest) -> dict[str, str]:
