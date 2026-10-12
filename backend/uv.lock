@@ -788,6 +788,7 @@ name = "matchlens"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agent-framework-core" },
     { name = "fastapi" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
@@ -823,6 +824,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-framework-core", specifier = "==1.21.0" },
     { name = "agent-framework-foundry", marker = "extra == 'foundry'", specifier = "==1.14.1" },
     { name = "azure-cosmos", extras = ["aio"], marker = "extra == 'azure'", specifier = "==4.17.1" },
     { name = "azure-eventhub", marker = "extra == 'azure'", specifier = "==5.15.1" },

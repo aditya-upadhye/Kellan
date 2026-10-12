@@ -2,7 +2,20 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] - M6 personalization
+## [Unreleased] - M7 workflow integration
+
+### Added
+
+- Added a Microsoft Agent Framework workflow that selects moments, creates verified insights, personalizes them for active viewer profiles, and builds provenance-bearing overlay cues. Critical goals and cards bypass periodic model selection; noncritical selections are flushed at match end.
+- Wired live workflow execution into the match lifecycle with per-moment metric snapshots, bounded concurrent generation, stale-result cancellation, sequence-ordered delivery, cue scheduling, and trace streaming.
+- Added match profile selection, profile-filtered WebSocket cues, cue history and agent trace endpoints, plus a runtime `llm_mode` control for switching a running match to safe fallbacks.
+- Added an immutable metric-store snapshot so verification uses the evidence available when a moment was detected.
+
+### Verified
+
+- Ruff and Pyright pass for the backend source and new workflow modules. Match-level API behavior remains to be verified in the next checkpoint.
+
+## [m6] - Personalization
 
 ### Added
 

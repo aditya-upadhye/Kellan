@@ -9,16 +9,17 @@ from matchlens.api.matches import (
     StartMatchRequest,
     session_stream,
 )
-from matchlens.config import get_settings
+from matchlens.config import Settings, get_settings
+from matchlens.models.cues import OverlayCue
 from matchlens.models.profiles import ViewerProfile
+from matchlens.models.traces import AgentTrace
 from matchlens.obs import configure_console_tracing
 from matchlens.profiles import DEFAULT_PROFILES, get_profile
 from matchlens.sim.scenarios import load_scenario, scenario_names
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
-    manager = MatchManager(settings)
+def create_app(settings: Settings | None = None) -> FastAPI:
+    manager = MatchManager(settings or get_settings())
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -38,9 +39,9 @@ def create_app() -> FastAPI:
         return [
             {
                 "name": name,
-                "description": load_scenario(name, settings.scenarios_dir).description,
+                "description": load_scenario(name, manager.settings.scenarios_dir).description,
             }
-            for name in scenario_names(settings.scenarios_dir)
+            for name in scenario_names(manager.settings.scenarios_dir)
         ]
 
     @app.get("/api/profiles", response_model=list[ViewerProfile])
@@ -72,6 +73,8 @@ def create_app() -> FastAPI:
             "score": session.score,
             "speed": session.speed,
             "error": session.error,
+            "profiles": [profile.profile_id for profile in session.profiles],
+            "llm_mode": session.llm_mode,
         }
 
     @app.get("/api/matches/{match_id}/state")
@@ -104,18 +107,48 @@ def create_app() -> FastAPI:
             await manager.control(session, request)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        return {"match_id": match_id, "status": session.state, "speed": session.speed}
+        return {
+            "match_id": match_id,
+            "status": session.state,
+            "speed": session.speed,
+            "llm_mode": session.llm_mode,
+        }
+
+    @app.get("/api/matches/{match_id}/cues")
+    async def get_cues(match_id: str, profile_id: str | None = None) -> dict[str, list[OverlayCue]]:
+        session = _get_session(manager, match_id)
+        if profile_id is not None and profile_id not in {
+            profile.profile_id for profile in session.profiles
+        }:
+            raise HTTPException(status_code=422, detail="profile is not active in this match")
+        return {
+            "cues": [
+                cue for cue in session.cues if profile_id is None or cue.profile_id == profile_id
+            ]
+        }
+
+    @app.get("/api/matches/{match_id}/trace")
+    async def get_trace(match_id: str) -> dict[str, list[AgentTrace]]:
+        return {"traces": _get_session(manager, match_id).traces}
 
     @app.websocket("/ws/matches/{match_id}")
-    async def stream_match(websocket: WebSocket, match_id: str) -> None:
+    async def stream_match(
+        websocket: WebSocket, match_id: str, profiles: str | None = None
+    ) -> None:
         try:
             session = manager.get(match_id)
         except LookupError:
             await websocket.close(code=4404, reason="Match not found")
             return
+        selected = frozenset(profiles.split(",")) if profiles is not None else None
+        if selected is not None and not selected <= {
+            profile.profile_id for profile in session.profiles
+        }:
+            await websocket.close(code=4400, reason="Unknown match profile")
+            return
         await websocket.accept()
         try:
-            async for message in session_stream(session):
+            async for message in session_stream(session, selected):
                 await websocket.send_text(message.model_dump_json())
         except WebSocketDisconnect:
             pass

@@ -60,13 +60,7 @@ class DetectorAgent:
         if elapsed_ms < 0:
             raise ValueError("elapsed_ms must be non-negative")
 
-        critical = [candidate for candidate in candidates if candidate.type in CRITICAL_TYPES]
-        tracer = trace.get_tracer("matchlens.detector")
-        for candidate in critical:
-            with tracer.start_as_current_span("matchlens.detector.critical") as span:
-                span.set_attribute("matchlens.match_id", candidate.match_id)
-                span.set_attribute("matchlens.moment_id", candidate.moment_id)
-                self._emit_trace(candidate, "emit", "approved", "critical moment")
+        critical = self.critical_moments(candidates)
         for candidate in candidates:
             if candidate.type not in CRITICAL_TYPES:
                 self._pending[candidate.moment_id] = candidate
@@ -75,6 +69,22 @@ class DetectorAgent:
             return critical
         reviewed = await self._review(state_summary, elapsed_ms)
         return sorted([*critical, *reviewed], key=lambda item: (item.seq_start, item.moment_id))
+
+    async def flush(self, elapsed_ms: int) -> list[Moment]:
+        if elapsed_ms < 0:
+            raise ValueError("elapsed_ms must be non-negative")
+        reviewed = await self._review({}, elapsed_ms)
+        return sorted(reviewed, key=lambda item: (item.seq_start, item.moment_id))
+
+    def critical_moments(self, candidates: list[Moment]) -> list[Moment]:
+        critical = [candidate for candidate in candidates if candidate.type in CRITICAL_TYPES]
+        tracer = trace.get_tracer("matchlens.detector")
+        for candidate in critical:
+            with tracer.start_as_current_span("matchlens.detector.critical") as span:
+                span.set_attribute("matchlens.match_id", candidate.match_id)
+                span.set_attribute("matchlens.moment_id", candidate.moment_id)
+                self._emit_trace(candidate, "emit", "approved", "critical moment")
+        return critical
 
     async def _review(
         self, state_summary: Mapping[str, str | float], elapsed_ms: int

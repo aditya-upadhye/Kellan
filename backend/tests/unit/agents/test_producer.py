@@ -167,7 +167,7 @@ def test_clock_advances_across_halftime_and_rejects_reversal() -> None:
 
     result = scheduler.advance(clock(0, period=2), wall_ms=2_000)
 
-    assert [item.cue_id for item in result.expired] == ["first"]
+    assert result.expired == ()
     with pytest.raises(ValueError, match="cannot move backwards"):
         scheduler.advance(clock(44 * 60_000, period=1), wall_ms=3_000)
 
@@ -206,7 +206,7 @@ def test_property_no_profile_has_two_active_cues_in_one_slot(
         active = {
             key: (active_cue, ends_at)
             for key, (active_cue, ends_at) in active.items()
-            if ends_at > now_ms and elapsed(active_cue.expires_at) > now_ms
+            if ends_at > now_ms
         }
         offered = cue(
             f"cue-{index}",

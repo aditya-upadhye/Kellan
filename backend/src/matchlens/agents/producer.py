@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from matchlens.agents.timing import MatchTimeline
+
 if TYPE_CHECKING:
     from matchlens.models.clock import MatchClock
     from matchlens.models.cues import OverlayCue
@@ -43,14 +45,17 @@ class ProducerScheduler:
     )
     _pending: list[_PendingCue] = field(default_factory=list[_PendingCue])
     _last_non_critical: dict[str, int] = field(default_factory=dict[str, int])
-    _now_match_ms: int | None = None
+    _timeline: MatchTimeline = field(default_factory=MatchTimeline)
+    _last_sequence: dict[str, int] = field(default_factory=dict[str, int])
     _now_wall_ms: int | None = None
 
     def offer(
         self, cue: OverlayCue, moment_type: str, now: MatchClock, wall_ms: int
     ) -> ScheduleResult:
         expired, _ = self._advance_time(now, wall_ms)
-        if self._elapsed(cue.expires_at) <= self._elapsed(now):
+        if self._elapsed(cue.expires_at) <= self._elapsed(
+            now
+        ) or cue.trigger_seq < self._last_sequence.get(cue.profile_id, 0):
             return ScheduleResult(expired=(*expired, cue))
         if self._elapsed(cue.expires_at) <= self._elapsed(cue.clock):
             raise ValueError("cue expiry must follow its trigger clock")
@@ -83,19 +88,14 @@ class ProducerScheduler:
         return ScheduleResult(delivered=tuple(delivered), expired=(*expired, *newly_expired))
 
     def _advance_time(self, now: MatchClock, wall_ms: int) -> tuple[list[OverlayCue], int]:
-        elapsed = self._elapsed(now)
-        if self._now_match_ms is not None and elapsed < self._now_match_ms:
-            raise ValueError("producer clock cannot move backwards")
         if self._now_wall_ms is not None and wall_ms < self._now_wall_ms:
             raise ValueError("producer wall clock cannot move backwards")
-        self._now_match_ms = elapsed
+        elapsed = self._timeline.advance(now)
         self._now_wall_ms = wall_ms
         expired: list[OverlayCue] = []
         for key, active in list(self._active.items()):
-            if active.ends_at_ms <= wall_ms or self._is_expired(active.cue, elapsed):
+            if active.ends_at_ms <= wall_ms:
                 self._active.pop(key)
-                if self._is_expired(active.cue, elapsed):
-                    expired.append(active.cue)
         retained: list[_PendingCue] = []
         for pending in self._pending:
             if self._is_expired(pending.cue, elapsed):
@@ -136,16 +136,17 @@ class ProducerScheduler:
                 blocked_profiles.add(cue.profile_id)
                 continue
             delivered.append(cue)
-            self._active[key] = _ActiveCue(cue=cue, ends_at_ms=wall_ms + cue.duration_ms)
+            self._last_sequence[cue.profile_id] = cue.trigger_seq
+            self._active[key] = _ActiveCue(
+                cue=cue, ends_at_ms=wall_ms + cue.start_delay_ms + cue.duration_ms
+            )
             if not pending.critical:
                 self._last_non_critical[cue.profile_id] = now_ms
         self._pending = retained
         return delivered, expired
 
-    @staticmethod
-    def _is_expired(cue: OverlayCue, now_ms: int) -> bool:
-        return now_ms >= ProducerScheduler._elapsed(cue.expires_at)
+    def _is_expired(self, cue: OverlayCue, now_ms: int) -> bool:
+        return now_ms >= self._elapsed(cue.expires_at)
 
-    @staticmethod
-    def _elapsed(clock: MatchClock) -> int:
-        return (clock.period - 1) * 45 * 60_000 + clock.ms
+    def _elapsed(self, clock: MatchClock) -> int:
+        return self._timeline.elapsed(clock)
