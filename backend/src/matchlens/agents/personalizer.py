@@ -13,6 +13,7 @@ from pydantic import Field
 
 from matchlens.agents.facts import join_body
 from matchlens.agents.verifier import verify_claims
+from matchlens.i18n import fallback_text
 from matchlens.llm.client import LLMDisabledError
 from matchlens.models.base import Contract
 from matchlens.models.insights import CheckError
@@ -37,7 +38,9 @@ _PRESENTATION: dict[str, tuple[CueTemplate, CueSlot]] = {
 }
 _CASUAL_JARGON = re.compile(
     r"\b(?:xG|PPDA|expected goals|possession|control index|momentum index|"
-    r"pass completion|pressing efficiency)\b",
+    r"pass completion|pressing efficiency|goles esperados|posesión|posesion|"
+    r"índice de control|indice de control|índice de impulso|indice de impulso|"
+    r"precisión de pase|precision de pase|eficiencia de presión|eficiencia de presion)\b",
     re.IGNORECASE,
 )
 
@@ -63,7 +66,7 @@ class PersonalizedContent:
     template: CueTemplate
     slot: CueSlot
     attempts: int
-    status: Literal["verified"] = "verified"
+    status: Literal["verified", "fallback"] = "verified"
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,10 +108,6 @@ class PersonalizerAgent:
             raise ValueError("Personalizer requires a verified insight")
         if insight.moment_id != moment.moment_id:
             raise ValueError("insight and moment IDs must match")
-        if profile.language != "en":
-            raise ValueError(
-                "Personalizer supports English until M6 number-word verification is added"
-            )
         if profile.mode == "player_focus":
             favorite_player_id = profile.favorite_player_id
             if favorite_player_id not in moment.subject_ids:
@@ -117,7 +116,7 @@ class PersonalizerAgent:
             if favorite_player_id not in subject_names:
                 raise ValueError("player-focus profile requires the favorite player's display name")
 
-        source_errors = await verify_claims(insight, moment, store)
+        source_errors = await verify_claims(insight, moment, store, "en")
         if source_errors:
             raise ValueError("source insight must pass verification before personalization")
         claims_by_key = self._allowed_claims(insight, allowed_claims)
@@ -125,15 +124,17 @@ class PersonalizerAgent:
         feedback: list[dict[str, str]] = []
         previous_draft: dict[str, object] | None = None
         errors: list[CheckError] = []
+        prompt_file = (
+            "prompts/personalizer.md" if profile.language == "en" else "prompts/personalizer.es.md"
+        )
+        system = files("matchlens.agents").joinpath(prompt_file).read_text(encoding="utf-8")
 
         for attempt in range(1, MAX_ATTEMPTS + 1):
             started = time.perf_counter()
             try:
                 payload = await self._client.complete_json(
                     "personalizer",
-                    files("matchlens.agents")
-                    .joinpath("prompts/personalizer.md")
-                    .read_text(encoding="utf-8"),
+                    system,
                     json.dumps(
                         {
                             **user,
@@ -151,15 +152,15 @@ class PersonalizerAgent:
                 response = PersonalizerResponse.model_validate(payload)
             except LLMDisabledError:
                 self._record(moment, "personalize", "fallback", "LLM mode is off", started)
-                raise
+                return await self._fallback(insight, profile, moment, store, 0)
             except Exception as error:
                 self._record(moment, "personalize", "error", type(error).__name__, started)
-                raise RuntimeError("Personalizer could not produce structured output") from error
+                return await self._fallback(insight, profile, moment, store, attempt)
 
             candidate, selected_claims, errors = self._candidate(
                 insight, profile, response, claims_by_key
             )
-            errors.extend(await verify_claims(candidate, moment, store))
+            errors.extend(await verify_claims(candidate, moment, store, profile.language))
             if not errors:
                 self._record(moment, "verify", "approved", f"attempt={attempt}", started)
                 template, slot = _PRESENTATION[profile.mode]
@@ -195,7 +196,37 @@ class PersonalizerAgent:
             if attempt < MAX_ATTEMPTS:
                 self._record(moment, "revise", "retry", f"attempt={attempt + 1}")
 
-        raise PersonalizationRejectedError(errors, MAX_ATTEMPTS)
+        self._record(moment, "personalize", "fallback", "verification retries exhausted")
+        return await self._fallback(insight, profile, moment, store, MAX_ATTEMPTS)
+
+    async def _fallback(
+        self,
+        insight: Insight,
+        profile: ViewerProfile,
+        moment: Moment,
+        store: MetricStore,
+        attempts: int,
+    ) -> PersonalizedContent:
+        headline, body = fallback_text(profile.language, moment.type)
+        candidate = insight.model_copy(update={"headline": headline, "body": body, "claims": []})
+        errors = await verify_claims(candidate, moment, store, profile.language)
+        if profile.mode == "casual" and len(body) > CASUAL_BODY_LIMIT:
+            errors.append(CheckError(code="too_long", detail="casual body exceeds 140 characters"))
+        if errors:
+            raise PersonalizationRejectedError(errors, attempts)
+        template, slot = _PRESENTATION[profile.mode]
+        return PersonalizedContent(
+            profile_id=profile.profile_id,
+            insight_id=insight.insight_id,
+            moment_id=moment.moment_id,
+            headline=headline,
+            body=body,
+            claims=(),
+            template=template,
+            slot=slot,
+            attempts=attempts,
+            status="fallback",
+        )
 
     @staticmethod
     def _allowed_claims(insight: Insight, allowed_claims: list[Claim]) -> dict[str, Claim]:

@@ -8,7 +8,6 @@ import pytest
 
 from matchlens.agents.personalizer import (
     PersonalizationContext,
-    PersonalizationRejectedError,
     PersonalizerAgent,
 )
 from matchlens.llm.client import MockLLMClient, MockResponse
@@ -153,16 +152,18 @@ def test_personalizer_retries_uncited_numbers_and_supplies_error_feedback() -> N
 
 
 def test_persistently_uncited_number_never_returns_personalized_content() -> None:
-    with pytest.raises(PersonalizationRejectedError) as rejected:
-        run_personalizer(
-            {
-                "headline": "Two chances emerge",
-                "body": [{"text": "A dangerous attack.", "claim_key": None}],
-            }
-        )
+    content = run_personalizer(
+        {
+            "headline": "Two chances emerge",
+            "body": [{"text": "A dangerous attack.", "claim_key": None}],
+        }
+    )
 
-    assert rejected.value.attempts == 3
-    assert rejected.value.errors[0].code == "uncited_number"
+    assert content is not None
+    assert content.status == "fallback"
+    assert content.attempts == 3
+    assert content.claims == ()
+    assert "Two" not in content.headline
 
 
 def test_casual_profile_retries_jargon_and_long_body() -> None:
@@ -221,9 +222,112 @@ def test_player_focus_receives_resolved_favorite_name() -> None:
     assert (personalized.template, personalized.slot) == ("player_tag", "top_right")
 
 
-def test_spanish_profile_is_deferred_until_number_word_verification() -> None:
-    with pytest.raises(ValueError, match="number-word verification"):
-        run_personalizer(response_for, DEFAULT_PROFILES[2])
+def test_spanish_profile_returns_verified_spanish_content() -> None:
+    def respond(user: str) -> dict[str, Any]:
+        request = json.loads(user)
+        assert request["profile"]["language"] == "es"
+        return {
+            "headline": "Kestrel genera peligro",
+            "body": [{"text": "El equipo crea una ocasión clara.", "claim_key": None}],
+        }
+
+    content = run_personalizer(respond, DEFAULT_PROFILES[2])
+
+    assert content is not None
+    assert content.status == "verified"
+    assert content.headline == "Kestrel genera peligro"
+    assert content.body == "El equipo crea una ocasión clara."
+    assert content.claims == ()
+
+
+def test_spanish_profile_preserves_the_english_source_claim_value() -> None:
+    source = source_insight()
+    count_claim = Claim(
+        claim_id="source-count",
+        text_span="2",
+        metric_id="team.home.passes",
+        value=2.0,
+        as_of_seq=10,
+    )
+    source = source.model_copy(
+        update={"body": "The home side completes 2 passes.", "claims": [count_claim]}
+    )
+    selected_moment = moment().model_copy(update={"evidence_metric_ids": ["team.home.passes"]})
+    pass_snapshot = MetricSnapshot(
+        metric_id="team.home.passes",
+        scope="team",
+        subject_id="home",
+        label="Passes",
+        value=2.0,
+        unit="count",
+        window="match",
+        as_of_seq=10,
+        clock=MatchClock(period=1, ms=10_000),
+    )
+    store = MemoryMetricStore()
+
+    async def run() -> PersonalizedContent | None:
+        await store.put(selected_moment.match_id, pass_snapshot)
+        client = MockLLMClient(
+            {
+                ("personalizer", "goal"): {
+                    "headline": "Kestrel completa pases",
+                    "body": [
+                        {"text": "El equipo completa", "claim_key": "A"},
+                        {"text": "pases.", "claim_key": None},
+                    ],
+                }
+            }
+        )
+        return await PersonalizerAgent(client, "fast").personalize(
+            source,
+            DEFAULT_PROFILES[2],
+            source.claims,
+            PersonalizationContext(
+                moment=selected_moment,
+                store=store,
+                subject_names={"home": "Kestrel Bay Athletic"},
+            ),
+        )
+
+    content = asyncio.run(run())
+
+    assert content is not None
+    assert content.status == "verified"
+    assert content.body == "El equipo completa 2 pases."
+    assert content.claims == (count_claim,)
+
+
+def test_spanish_number_words_are_rejected_then_retried() -> None:
+    requests: list[dict[str, Any]] = []
+
+    def respond(user: str) -> dict[str, Any]:
+        requests.append(json.loads(user))
+        if len(requests) == 1:
+            return {
+                "headline": "Dos ocasiones para Kestrel",
+                "body": [{"text": "El equipo genera peligro.", "claim_key": None}],
+            }
+        return {
+            "headline": "Kestrel genera peligro",
+            "body": [{"text": "El equipo crea una ocasión clara.", "claim_key": None}],
+        }
+
+    content = run_personalizer(respond, DEFAULT_PROFILES[2])
+
+    assert content is not None
+    assert content.status == "verified"
+    assert content.attempts == 2
+    assert requests[1]["check_errors"][0]["code"] == "uncited_number"
+
+
+def test_disabled_llm_returns_localized_verified_fallback() -> None:
+    content = run_personalizer({}, DEFAULT_PROFILES[2])
+
+    assert content is not None
+    assert content.status == "fallback"
+    assert content.headline == "El marcador cambia"
+    assert content.claims == ()
 
 
 def test_personalizer_requires_verified_source_insight() -> None:

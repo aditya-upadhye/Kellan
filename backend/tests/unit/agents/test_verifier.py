@@ -12,6 +12,7 @@ from matchlens.models.metrics import MetricSnapshot
 from matchlens.store.memory import MemoryMetricStore
 
 if TYPE_CHECKING:
+    from matchlens.models.base import Language
     from matchlens.models.insights import CheckError
     from matchlens.models.metrics import MetricUnit
 
@@ -86,12 +87,13 @@ def check(
     draft: Insight,
     snapshots: list[MetricSnapshot],
     selected: Moment | None = None,
+    language: Language = "en",
 ) -> list[CheckError]:
     async def run() -> list[CheckError]:
         store = MemoryMetricStore()
         for item in snapshots:
             await store.put(MATCH_ID, item)
-        return await verify_claims(draft, selected or moment(), store)
+        return await verify_claims(draft, selected or moment(), store, language)
 
     return asyncio.run(run())
 
@@ -110,6 +112,37 @@ def test_number_words_are_supported_when_cited(words: str, value: int) -> None:
     draft = insight(f"They complete {words} passes.", [claim(words, PASSES, value)])
 
     assert check(draft, [snapshot(PASSES, value, unit="count")]) == []
+
+
+@pytest.mark.parametrize(
+    ("words", "value", "unit"),
+    [
+        ("dos", 2, "count"),
+        ("veintidós", 22, "count"),
+        ("cincuenta y tres", 53, "count"),
+        ("dos mil treinta y uno", 2031, "count"),
+        ("cincuenta y tres coma ocho por ciento", 53.8, "%"),
+        ("menos quince índice", -15, "index"),
+        ("treinta y cuatro km/h", 34, "km/h"),
+    ],
+)
+def test_spanish_number_words_are_supported_when_cited(
+    words: str, value: float, unit: MetricUnit
+) -> None:
+    metric_id = SPEED if unit == "km/h" else "match.momentum" if unit == "index" else PASSES
+    selected = moment([metric_id])
+    draft = insight(f"La métrica alcanza {words}.", [claim(words, metric_id, value)])
+    actual = value + 0.02 if unit == "%" else value
+
+    assert check(draft, [snapshot(metric_id, actual, unit=unit)], selected, "es") == []
+
+
+def test_spanish_number_words_without_claims_are_reported() -> None:
+    draft = insight("Dos ocasiones y el primer gol llegan pronto.", [])
+
+    errors = check(draft, [], language="es")
+
+    assert [error.code for error in errors] == ["uncited_number"] * 2
 
 
 def test_number_word_with_unit_must_match_metric_unit() -> None:

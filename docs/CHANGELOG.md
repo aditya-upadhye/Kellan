@@ -7,13 +7,13 @@ All notable changes are recorded here, one section per milestone tag.
 ### Added
 
 - Added seeded analyst English, casual English, casual Spanish, and player-focus profiles. The API lists profiles at `GET /api/profiles` and retrieves one by ID at `GET /api/profiles/{profile_id}`.
-- Added an English Personalizer that only accepts verified source insights and claims from that source. It can omit claims, but each emitted value is rendered from an allowed claim and rechecked against stored metrics before return. Profile presentation choices are deterministic; player-focus moments without the favorite player are skipped.
-- Spanish personalization remains gated until the number-word verification checkpoint, and rejected or unavailable model output cannot return as personalized content.
+- Added English and Spanish Personalizer prompts. Both accept only verified source insights and claims from that source. They can omit claims, but emitted values are rendered from allowed claims and rechecked against stored metrics with language-specific number-word parsing.
+- Added localized, verified fallback templates for every moment type. Invalid or unavailable model output resolves to a number-free fallback; player-focus moments without the favorite player are skipped.
 
 ### Verified
 
 - Profile seeds satisfy the strict `ViewerProfile` contract, and API tests cover list, lookup, and unknown IDs.
-- Personalizer tests cover claim preservation and omission, re-verification retries, rejection after three invalid attempts, casual limits and jargon, profile-specific presentation, and player-focus filtering.
+- Personalizer and verifier tests cover claim preservation and omission, English and Spanish number words, re-verification retries, localized fallback, casual limits and jargon, profile-specific presentation, and player-focus filtering.
 
 ## [m5] - Verified insights
 
