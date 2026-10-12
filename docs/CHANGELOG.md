@@ -9,11 +9,13 @@ All notable changes are recorded here, one section per milestone tag.
 - Added seeded analyst English, casual English, casual Spanish, and player-focus profiles. The API lists profiles at `GET /api/profiles` and retrieves one by ID at `GET /api/profiles/{profile_id}`.
 - Added English and Spanish Personalizer prompts. Both accept only verified source insights and claims from that source. They can omit claims, but emitted values are rendered from allowed claims and rechecked against stored metrics with language-specific number-word parsing.
 - Added localized, verified fallback templates for every moment type. Invalid or unavailable model output resolves to a number-free fallback; player-focus moments without the favorite player are skipped.
+- Added an API-backed profile switcher and optional split view. Both profile panels stay in sync with the same live score, clock, events, and metrics, while showing profile-specific summaries and Spanish copy.
 
 ### Verified
 
 - Profile seeds satisfy the strict `ViewerProfile` contract, and API tests cover list, lookup, and unknown IDs.
 - Personalizer and verifier tests cover claim preservation and omission, English and Spanish number words, re-verification retries, localized fallback, casual limits and jargon, profile-specific presentation, and player-focus filtering.
+- Frontend tests cover profile loading, comparison controls, and two profile views updating from the same live match stream. Generated personalized cue delivery remains part of the Producer workflow milestone.
 
 ## [m5] - Verified insights
 
