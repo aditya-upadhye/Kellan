@@ -13,7 +13,7 @@ All notable changes are recorded here, one section per milestone tag.
 
 ### Verified
 
-- Declared `httpx` as a pinned development dependency so profile API tests and strict Pyright checks run in the clean CI environment.
+- Declared `httpx2` as a pinned development dependency for Starlette 1.7's `TestClient` runtime and type-checking imports; its legacy `httpx` fallback does not supply the types Pyright needs.
 - Profile seeds satisfy the strict `ViewerProfile` contract, and API tests cover list, lookup, and unknown IDs.
 - Personalizer and verifier tests cover claim preservation and omission, English and Spanish number words, re-verification retries, localized fallback, casual limits and jargon, profile-specific presentation, and player-focus filtering.
 - Frontend tests cover profile loading, comparison controls, and two profile views updating from the same live match stream. Generated personalized cue delivery remains part of the Producer workflow milestone.

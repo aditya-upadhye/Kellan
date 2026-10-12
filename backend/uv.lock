@@ -810,8 +810,8 @@ foundry = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx2" },
     { name = "hypothesis" },
-    { name = "httpx" },
     { name = "pip-audit" },
     { name = "pre-commit" },
     { name = "pyright" },
@@ -840,8 +840,8 @@ provides-extras = ["azure", "foundry"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx2", specifier = "==2.13.1" },
     { name = "hypothesis", specifier = "==6.168.3" },
-    { name = "httpx", specifier = "==0.28.1" },
     { name = "pip-audit", specifier = "==2.10.1" },
     { name = "pre-commit", specifier = "==4.6.2" },
     { name = "pyright", specifier = "==1.1.414" },
