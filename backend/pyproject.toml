@@ -31,6 +31,7 @@ matchlens = "matchlens.cli:main"
 [dependency-groups]
 dev = [
     "hypothesis==6.168.3",
+    "httpx==0.28.1",
     "pip-audit==2.10.1",
     "pre-commit==4.6.2",
     "pyright==1.1.414",
