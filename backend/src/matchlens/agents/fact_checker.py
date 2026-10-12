@@ -6,6 +6,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING
 
 from matchlens.agents.verifier import verify_claims
+from matchlens.config import get_settings
 from matchlens.llm.client import LLMDisabledError
 from matchlens.models.insights import Claim, Insight
 from matchlens.models.traces import AgentTrace
@@ -53,10 +54,16 @@ class FactCheckerAgent:
         explainer: ExplainerAgent,
         store: MetricStore,
         record_trace: Callable[[AgentTrace], None] | None = None,
+        *,
+        fault_inject_rate: float | None = None,
     ) -> None:
+        rate = get_settings().fault_inject_rate if fault_inject_rate is None else fault_inject_rate
+        if not 0.0 <= rate <= 1.0:
+            raise ValueError("fault_inject_rate must be between 0 and 1")
         self._explainer = explainer
         self._store = store
         self._record_trace = record_trace
+        self._fault_inject_rate = rate
 
     async def create_insight(
         self,
@@ -91,6 +98,8 @@ class FactCheckerAgent:
                 self._record(moment, "template", "fallback", "model draft failed")
                 return await self._fallback(moment, attempt)
 
+            if attempt == 1:
+                draft = self._inject_fault(draft, moment)
             errors = await verify_claims(draft, moment, self._store)
             if not errors:
                 self._record(moment, "verify", "approved", f"attempt={attempt}", started)
@@ -103,6 +112,20 @@ class FactCheckerAgent:
 
         self._record(moment, "template", "fallback", "verification failed after retries")
         return await self._fallback(moment, 3)
+
+    def _inject_fault(self, draft: Insight, moment: Moment) -> Insight:
+        if not draft.claims or self._fault_inject_rate == 0.0:
+            return draft
+        digest = sha256(f"{moment.match_id}:{moment.moment_id}".encode()).digest()
+        fraction = int.from_bytes(digest[:8], "big") / 2**64
+        if fraction >= self._fault_inject_rate:
+            return draft
+        index = int.from_bytes(digest[8:16], "big") % len(draft.claims)
+        claims = list(draft.claims)
+        claim = claims[index]
+        claims[index] = claim.model_copy(update={"value": claim.value + 1.0})
+        self._record(moment, "inject", "ok", f"claim={claim.claim_id}")
+        return draft.model_copy(update={"claims": claims})
 
     async def _fallback(self, moment: Moment, attempts: int) -> Insight:
         insight_id = f"ins-{sha256(moment.moment_id.encode()).hexdigest()[:32]}"
