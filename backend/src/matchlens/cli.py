@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import cast
 
 from matchlens import __version__
-from matchlens.config import get_settings
+from matchlens.config import REPO_ROOT, LLMMode, Settings, get_settings
+from matchlens.eval.harness import evaluate, write_report
 from matchlens.models.json_schema import export_json_schemas
 from matchlens.pipeline.replay import ReplaySpeed, read_match, replay_match
 from matchlens.sim.match import simulate_scenario
@@ -95,6 +96,26 @@ def run_replay(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_eval(args: argparse.Namespace) -> int:
+    try:
+        settings = Settings(llm_mode=LLMMode(args.llm))
+        scenarios = (
+            ["balanced", "late_comeback", "red_card_press"]
+            if args.scenarios == "all"
+            else [name.strip() for name in args.scenarios.split(",") if name.strip()]
+        )
+        seeds = [int(seed.strip()) for seed in args.seeds.split(",")]
+        report = asyncio.run(
+            evaluate(scenarios, seeds, settings.llm_mode, args.fault_rate, settings)
+        )
+        write_report(report, args.report_json, args.report_md)
+    except (ValueError, UnknownScenarioError, RuntimeError) as error:
+        print(error, file=sys.stderr)
+        return 2
+    print(f"evaluated {report['summary']['matches']} matches; report: {args.report_md}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="matchlens")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -120,6 +141,15 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("match_dir", type=Path)
     replay.add_argument("--speed", choices=("1", "10", "30", "60", "max"), default="max")
     replay.set_defaults(handler=run_replay)
+
+    evaluation = commands.add_parser("eval", help="evaluate seeded matches and write reports")
+    evaluation.add_argument("--scenarios", default="all")
+    evaluation.add_argument("--seeds", default="1,2,3")
+    evaluation.add_argument("--llm", choices=("mock", "foundry"), default="mock")
+    evaluation.add_argument("--fault-rate", type=float, default=0.0)
+    evaluation.add_argument("--report-json", type=Path, default=REPO_ROOT / "eval/report.json")
+    evaluation.add_argument("--report-md", type=Path, default=REPO_ROOT / "docs/eval-results.md")
+    evaluation.set_defaults(handler=run_eval)
 
     return parser
 

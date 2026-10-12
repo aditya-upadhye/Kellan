@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from matchlens.metrics.semantics import control_state
 from matchlens.models.events import CardEvent, GoalEvent, ShotEvent
 from matchlens.models.insights import Moment, MomentType
 from matchlens.models.tracking import TrackingFrame
@@ -217,9 +218,7 @@ class RuleTriggerEngine:
         ]
 
     def _control_shift(self, snapshot: MetricSnapshot, seq: int) -> list[Moment]:
-        label = (
-            "control" if snapshot.value > 25 else "chaos" if snapshot.value < -25 else "balanced"
-        )
+        label = control_state(snapshot.value)
         previous = self._control_label
         self._control_label = label
         if previous is None or previous == label:

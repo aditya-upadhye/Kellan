@@ -1,0 +1,2675 @@
+{
+  "fault_rate": 0.0,
+  "matches": [
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 26,
+      "insight_latency_p50_ms": 1.5,
+      "insight_latency_p95_ms": 3.01,
+      "llm_calls": 80,
+      "match_id": "balanced-s1",
+      "moments": 27,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-8-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-63-card-h06",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-22-speed_alert-h07",
+          "moment_type": "speed_alert",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-218-card-h08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-219-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-271-card-h03",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-236-speed_alert-h11",
+          "moment_type": "speed_alert",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-397-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-478-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-541-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-668-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-887-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "balanced-s1-906-goal-a09",
+          "moment_type": "goal",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-977-card-a02",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-905-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-996-card-a09",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-1186-card-a08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-989-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s1-1243-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1228-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1443-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1479-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1562-milestone-h06",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1662-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1894-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-1902-milestone-a08",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s1-2127-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "balanced",
+      "seed": 1,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 24768,
+      "tokens_out": 3124,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 27,
+      "insight_latency_p50_ms": 1.84,
+      "insight_latency_p95_ms": 3.96,
+      "llm_calls": 81,
+      "match_id": "balanced-s2",
+      "moments": 29,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-18-card-a04",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-9-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 2,
+          "moment_id": "balanced-s2-23-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-42-control_shift-control",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-201-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-225-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-422-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-456-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-606-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-822-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-841-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1081-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "balanced-s2-1164-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1160-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-1204-card-a11",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1227-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "balanced-s2-1315-goal-h04",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1315-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1398-milestone-away",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-1614-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1570-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "balanced-s2-1694-goal-a10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1689-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-1723-card-h03",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1767-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-1847-card-h15",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "balanced-s2-1849-goal-a10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s2-1848-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s2-1921-card-a07",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "balanced",
+      "seed": 2,
+      "statuses": {
+        "verified": 29
+      },
+      "tokens_in": 25825,
+      "tokens_out": 3125,
+      "unverified_claims": 0,
+      "verified": 29
+    },
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 23,
+      "insight_latency_p50_ms": 1.51,
+      "insight_latency_p95_ms": 2.27,
+      "llm_calls": 79,
+      "match_id": "balanced-s3",
+      "moments": 24,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-7-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s3-98-card-a08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-19-control_shift-control",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-221-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-265-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-404-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-466-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-575-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-709-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s3-829-card-h09",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-899-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-939-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "balanced-s3-1104-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1103-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s3-1250-card-a09",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1263-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1359-milestone-away",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1559-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1675-milestone-a08",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "balanced-s3-1798-card-h08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1698-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1893-milestone-a06",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-1962-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "balanced-s3-2158-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "balanced",
+      "seed": 3,
+      "statuses": {
+        "verified": 24
+      },
+      "tokens_in": 23650,
+      "tokens_out": 3109,
+      "unverified_claims": 0,
+      "verified": 24
+    },
+    {
+      "claims": 26,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 26,
+      "insight_latency_p50_ms": 1.71,
+      "insight_latency_p95_ms": 3.95,
+      "llm_calls": 100,
+      "match_id": "late_comeback-s1",
+      "moments": 30,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-6-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-90-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-280-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 3,
+          "moment_id": "late_comeback-s1-381-player_spotlight-a02",
+          "moment_type": "player_spotlight",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-405-speed_alert-h07",
+          "moment_type": "speed_alert",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-500-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s1-645-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-643-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s1-746-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-694-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 5,
+          "moment_id": "late_comeback-s1-894-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s1-913-card-a06",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-893-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 5,
+          "moment_id": "late_comeback-s1-918-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-917-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 7,
+          "moment_id": "late_comeback-s1-1213-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1212-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1246-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s1-1421-card-h10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1367-milestone-home",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1504-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1593-milestone-a08",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1725-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s1-1887-goal-h18",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1856-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s1-1976-goal-h18",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1975-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s1-2046-goal-h18",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s1-2051-card-h18",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s1-1999-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "late_comeback",
+      "seed": 1,
+      "statuses": {
+        "verified": 30
+      },
+      "tokens_in": 31306,
+      "tokens_out": 3953,
+      "unverified_claims": 0,
+      "verified": 30
+    },
+    {
+      "claims": 26,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 24,
+      "insight_latency_p50_ms": 1.62,
+      "insight_latency_p95_ms": 2.88,
+      "llm_calls": 90,
+      "match_id": "late_comeback-s2",
+      "moments": 26,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-9-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-103-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-230-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-320-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 7,
+          "moment_id": "late_comeback-s2-419-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-393-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-456-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s2-585-goal-a07",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-584-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-625-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-773-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-856-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s2-1069-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1068-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s2-1096-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1095-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1247-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1320-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1416-milestone-home",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1533-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s2-1694-goal-h18",
+          "moment_type": "goal",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1665-milestone-a08",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s2-1799-goal-h18",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1761-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s2-1896-goal-h18",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s2-1862-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        }
+      ],
+      "scenario": "late_comeback",
+      "seed": 2,
+      "statuses": {
+        "verified": 26
+      },
+      "tokens_in": 27771,
+      "tokens_out": 3712,
+      "unverified_claims": 0,
+      "verified": 26
+    },
+    {
+      "claims": 24,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 23,
+      "insight_latency_p50_ms": 1.49,
+      "insight_latency_p95_ms": 2.74,
+      "llm_calls": 104,
+      "match_id": "late_comeback-s3",
+      "moments": 27,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-7-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s3-37-card-a09",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s3-79-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-23-control_shift-control",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-196-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-202-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-400-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-471-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "late_comeback-s3-541-goal-a09",
+          "moment_type": "goal",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-567-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-641-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-648-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-763-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "late_comeback-s3-908-card-h08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s3-987-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-986-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1019-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1176-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1269-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1329-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1468-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 8,
+          "moment_id": "late_comeback-s3-1620-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1619-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s3-1736-goal-h09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1702-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "late_comeback-s3-1802-goal-h09",
+          "moment_type": "goal",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "late_comeback-s3-1801-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "late_comeback",
+      "seed": 3,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 31457,
+      "tokens_out": 4242,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 27,
+      "insight_latency_p50_ms": 1.45,
+      "insight_latency_p95_ms": 2.24,
+      "llm_calls": 90,
+      "match_id": "red_card_press-s1",
+      "moments": 27,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-6-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-103-speed_alert-h09",
+          "moment_type": "speed_alert",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "red_card_press-s1-160-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-159-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-239-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-399-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "red_card_press-s1-485-goal-h05",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-484-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-531-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-590-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s1-770-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-683-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "red_card_press-s1-857-player_spotlight-h07",
+          "moment_type": "player_spotlight",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-986-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s1-1156-card-a09",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1095-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1244-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "red_card_press-s1-1298-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1297-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1418-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s1-1618-card-h10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1501-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "red_card_press-s1-1629-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s1-1678-card-h10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1666-milestone-home",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1790-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s1-1814-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "red_card_press",
+      "seed": 1,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 26768,
+      "tokens_out": 3624,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 22,
+      "insight_latency_p50_ms": 1.4,
+      "insight_latency_p95_ms": 1.86,
+      "llm_calls": 79,
+      "match_id": "red_card_press-s2",
+      "moments": 23,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-9-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-18-control_shift-control",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "red_card_press-s2-224-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-168-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-251-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-437-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-564-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-589-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-811-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-866-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-985-control_shift-chaos",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1022-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s2-1224-card-a03",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1291-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1364-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1551-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s2-1658-card-a08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1580-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1705-milestone-a08",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s2-1774-card-h12",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1781-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s2-1898-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "red_card_press-s2-2038-goal-a19",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "red_card_press",
+      "seed": 2,
+      "statuses": {
+        "verified": 23
+      },
+      "tokens_in": 23125,
+      "tokens_out": 3126,
+      "unverified_claims": 0,
+      "verified": 23
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 26,
+      "insight_latency_p50_ms": 1.47,
+      "insight_latency_p95_ms": 3.28,
+      "llm_calls": 97,
+      "match_id": "red_card_press-s3",
+      "moments": 27,
+      "outcomes": [
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-7-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-59-control_shift-control",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 7,
+          "moment_id": "red_card_press-s3-115-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-108-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-229-speed_alert-h11",
+          "moment_type": "speed_alert",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-407-press_shift-home",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 2,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-422-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [
+            "attempt=1; value_mismatch"
+          ],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-588-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "red_card_press-s3-687-goal-a07",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-618-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-835-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-841-control_shift-balanced",
+          "moment_type": "control_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 6,
+          "moment_id": "red_card_press-s3-1114-goal-h10",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1098-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s3-1166-card-a08",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1134-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s3-1212-card-a07",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1212-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1369-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 4,
+          "moment_id": "red_card_press-s3-1469-goal-a09",
+          "moment_type": "goal",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1468-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s3-1585-card-a10",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1484-press_shift-away",
+          "moment_type": "press_shift",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1661-milestone-home",
+          "moment_type": "milestone",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 0,
+          "draft_errors": [],
+          "evidence_count": 0,
+          "moment_id": "red_card_press-s3-1778-card-h14",
+          "moment_type": "card",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1712-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        },
+        {
+          "attempts": 1,
+          "claim_count": 1,
+          "draft_errors": [],
+          "evidence_count": 1,
+          "moment_id": "red_card_press-s3-1862-momentum_swing-match",
+          "moment_type": "momentum_swing",
+          "rejections": [],
+          "status": "verified"
+        }
+      ],
+      "scenario": "red_card_press",
+      "seed": 3,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 28949,
+      "tokens_out": 4080,
+      "unverified_claims": 0,
+      "verified": 27
+    }
+  ],
+  "mode": "mock",
+  "scenarios": [
+    "balanced",
+    "late_comeback",
+    "red_card_press"
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "summary": {
+    "claims": 205,
+    "fallback_rate": 0.0,
+    "fallbacks": 0,
+    "fault_catch_rate": null,
+    "faults_caught": 0,
+    "faults_injected": 0,
+    "first_pass": 224,
+    "first_pass_rate": 0.9333,
+    "insight_latency_p50_ms": 1.51,
+    "insight_latency_p95_ms": 3.31,
+    "llm_calls": 800,
+    "matches": 9,
+    "moments": 240,
+    "moments_per_match": 26.67,
+    "tokens_in": 243619,
+    "tokens_out": 32095,
+    "unverified_claims": 0,
+    "verified": 240
+  }
+}
