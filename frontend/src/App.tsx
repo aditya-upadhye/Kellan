@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { MatchEvent } from './generated/MatchEvent'
 import type { MatchMetadata } from './generated/MatchMetadata'
 import type { MetricSnapshot } from './generated/MetricSnapshot'
@@ -6,9 +6,12 @@ import type { StreamEnvelope } from './generated/StreamEnvelope'
 import type { TrackingFrame } from './generated/TrackingFrame'
 import type { ViewerProfile } from './generated/ViewerProfile'
 import type { AgentTrace } from './generated/AgentTrace'
+import type { OverlayCue } from './generated/OverlayCue'
+import type { Recap } from './generated/Recap'
 
 type PlaybackSpeed = 1 | 10 | 30 | 60 | 'max'
 type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error'
+type LiveCue = OverlayCue & { removing?: boolean }
 
 interface Scenario {
   name: string
@@ -94,6 +97,8 @@ function App() {
   const [metrics, setMetrics] = useState<Map<string, MetricSnapshot>>(new Map())
   const [events, setEvents] = useState<MatchEventData[]>([])
   const [traces, setTraces] = useState<AgentTrace[]>([])
+  const [cues, setCues] = useState<LiveCue[]>([])
+  const [recaps, setRecaps] = useState<Recap[]>([])
   const [faultArmed, setFaultArmed] = useState(false)
   const [socketState, setSocketState] = useState<'connecting' | 'live' | 'offline'>('offline')
   const [busy, setBusy] = useState(false)
@@ -203,6 +208,25 @@ function App() {
         if (trace.action === 'fault_injection') setFaultArmed(false)
         return
       }
+      if (envelope.kind === 'cue' && isRecord(data)) {
+        const cueId = typeof data.cue_id === 'string' ? data.cue_id : null
+        if (!cueId) return
+        if (data.action === 'remove') {
+          setCues((current) => current.map((cue) => cue.cue_id === cueId ? { ...cue, removing: true } : cue))
+        } else if (data.action === 'show') {
+          const cue = data as unknown as LiveCue
+          setCues((current) => [...current.filter((item) => item.cue_id !== cueId), { ...cue, removing: false }])
+        }
+        return
+      }
+      if (envelope.kind === 'recap' && isRecord(data)) {
+        const recap = data as unknown as Recap
+        setRecaps((current) => [
+          ...current.filter((item) => item.profile_id !== recap.profile_id || item.kind !== recap.kind),
+          recap,
+        ])
+        return
+      }
       if (envelope.kind === 'event' && isRecord(data)) {
         const event = data as unknown as MatchEventData
         setEvents((current) => [...current.slice(-7), event])
@@ -236,6 +260,16 @@ function App() {
   const timeline = useMemo(() => events.slice(-5).reverse(), [events])
   const primaryProfile = profiles.find((profile) => profile.profile_id === primaryProfileId)
   const secondaryProfile = profiles.find((profile) => profile.profile_id === secondaryProfileId)
+  const pitchCues = cues.filter((cue) => cue.slot !== 'side_panel')
+  const sidePanelCues = cues.filter((cue) => cue.slot === 'side_panel')
+  const visibleRecaps = recaps.filter((recap) => recap.profile_id === primaryProfileId)
+
+  const removeCue = useCallback((cueId: string) => {
+    setCues((current) => current.filter((cue) => cue.cue_id !== cueId))
+  }, [])
+  const beginCueRemoval = useCallback((cueId: string) => {
+    setCues((current) => current.map((cue) => cue.cue_id === cueId ? { ...cue, removing: true } : cue))
+  }, [])
 
   function changePrimaryProfile(profileId: string) {
     setPrimaryProfileId(profileId)
@@ -255,6 +289,8 @@ function App() {
     setFrame(null)
     setEvents([])
     setTraces([])
+    setCues([])
+    setRecaps([])
     setFaultArmed(false)
     setMetrics(new Map())
     try {
@@ -518,6 +554,11 @@ function App() {
                     {frame && <g className="ball-marker" transform={`translate(${frame.ball.x} ${frame.ball.y})`}><circle r="1.25" /><circle r="2.4" className="ball-pulse" /></g>}
                   </svg>
                   {!frame && <div className="pitch-loading"><span className="loading-ring" />{match.status === 'starting' ? 'Generating match data' : 'Waiting for first tracking frame'}</div>}
+                  <div className="broadcast-overlay-layer" aria-live="polite">
+                    {pitchCues.map((cue) => (
+                      <CueOverlay key={cue.cue_id} cue={cue} active={cue.profile_id === primaryProfileId} onExpire={beginCueRemoval} onExitComplete={removeCue} />
+                    ))}
+                  </div>
                 </div>
                 <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : 'â€”'}</b></span></div>
               </div>
@@ -545,6 +586,10 @@ function App() {
                 </div>
                 <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>ï¼‹ NEW MATCH</button>
               </div>
+
+              {sidePanelCues.map((cue) => (
+                <CueOverlay key={cue.cue_id} cue={cue} active={cue.profile_id === primaryProfileId} onExpire={beginCueRemoval} onExitComplete={removeCue} />
+              ))}
 
               <div className="timeline-panel">
                 <div className="panel-heading"><span>MATCH FEED</span><span className="feed-count">{events.length.toString().padStart(2, '0')}</span></div>
@@ -576,6 +621,7 @@ function App() {
                   )) : <p className="trace-empty">Agent decisions will appear here.</p>}
                 </div>
               </section>
+              <RecapPanel recaps={visibleRecaps} profileLabel={primaryProfile?.label ?? 'Viewer'} />
               <div className="sidebar-footnote"><span>â“˜</span> Every event and metric is generated from the match simulation.</div>
             </aside>
           </section>
@@ -585,6 +631,92 @@ function App() {
       {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">Ã—</button></div>}
       <footer className="app-footer"><span>MATCHLENS <i>Â·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>Â·</i> BUILT FOR THE GAME</span></footer>
     </main>
+  )
+}
+
+function CueOverlay({ cue, active, onExpire, onExitComplete }: { cue: LiveCue; active: boolean; onExpire: (cueId: string) => void; onExitComplete: (cueId: string) => void }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    let expiry: ReturnType<typeof setTimeout>
+    const show = setTimeout(() => {
+      setVisible(true)
+      expiry = setTimeout(() => onExpire(cue.cue_id), cue.duration_ms)
+    }, cue.start_delay_ms)
+    return () => {
+      clearTimeout(show)
+      clearTimeout(expiry)
+    }
+  }, [cue.cue_id, cue.duration_ms, cue.start_delay_ms, onExpire])
+
+  useEffect(() => {
+    if (!cue.removing) return
+    const exit = setTimeout(() => onExitComplete(cue.cue_id), 180)
+    return () => clearTimeout(exit)
+  }, [cue.cue_id, cue.removing, onExitComplete])
+
+  if (!active || (!visible && !cue.removing)) return null
+  const fallback = cue.data.status === 'fallback'
+  return (
+    <article className={`broadcast-cue cue-${cue.template} slot-${cue.slot}${cue.removing ? ' exiting' : ''}`} aria-label={`${cue.template.replaceAll('_', ' ')} overlay`}>
+      <div className="broadcast-cue-meta">
+        <span>{cue.template.replaceAll('_', ' ')}</span>
+        <span className={fallback ? 'cue-status fallback' : 'cue-status'}>{fallback ? 'FALLBACK' : 'VERIFIED'}</span>
+      </div>
+      <strong>{cue.headline}</strong>
+      <p>{cue.body}</p>
+      {cue.provenance.metric_ids.length > 0 && (
+        <small>VERIFIED FROM {cue.provenance.metric_ids.join(' · ')}</small>
+      )}
+    </article>
+  )
+}
+
+function RecapPanel({ recaps, profileLabel }: { recaps: Recap[]; profileLabel: string }) {
+  return (
+    <section className="recap-panel" aria-label={`${profileLabel} match recap`}>
+      <div className="panel-heading">
+        <span>MATCH RECAP</span>
+        <span className="feed-count">{recaps.length.toString().padStart(2, '0')}</span>
+      </div>
+      {recaps.length === 0 ? (
+        <p className="recap-empty">Half-time and full-time recaps will appear here.</p>
+      ) : (
+        <div className="recap-list">
+          {(['half', 'full'] as const).map((kind) => {
+            const recap = recaps.find((item) => item.kind === kind)
+            if (!recap) return null
+            return (
+              <article className="recap-card" key={`${recap.profile_id}-${recap.kind}`}>
+                <div className="recap-card-heading">
+                  <h3>{recap.title}</h3>
+                  <span className={recap.status === 'verified' ? 'recap-status' : 'recap-status fallback'}>
+                    {recap.status.toUpperCase()}
+                  </span>
+                </div>
+                {recap.paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph}`}>{paragraph}</p>)}
+                {recap.claims.length > 0 && (
+                  <details className="recap-evidence">
+                    <summary>{recap.claims.length} verified claims</summary>
+                    <ul>
+                      {recap.claims.map((claim) => (
+                        <li key={claim.claim_id}>
+                          <span>{claim.text_span}</span>
+                          <code>{claim.metric_id}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {recap.key_moment_ids.length > 0 && (
+                  <small>{recap.key_moment_ids.length} key moments</small>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 

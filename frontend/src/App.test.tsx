@@ -222,5 +222,98 @@ describe('App', () => {
     expect(within(activity).getByText('attempt=1; value_mismatch')).toBeInTheDocument()
     expect(within(activity).getByText('A generated number was wrong.')).toBeInTheDocument()
     expect(within(activity).getByText('rejected').closest('.trace-row')).toHaveClass('rejected')
+
+    act(() => {
+      sockets[0]?.onmessage?.(
+        new MessageEvent('message', {
+          data: JSON.stringify({
+            kind: 'cue',
+            match_id: 'match-1',
+            data: {
+              action: 'show',
+              cue_id: 'cue-1',
+              match_id: 'match-1',
+              profile_id: 'analyst_en',
+              insight_id: 'insight-1',
+              trigger_seq: 2,
+              clock: { period: 1, ms: 90_000 },
+              template: 'stat_bar',
+              slot: 'side_panel',
+              priority: 50,
+              start_delay_ms: 0,
+              duration_ms: 5_000,
+              expires_at: { period: 1, ms: 150_000 },
+              headline: 'Control is shifting',
+              body: 'Kestrel Bay is building pressure.',
+              language: 'en',
+              data: { status: 'verified', claims: [] },
+              provenance: {
+                metric_ids: ['match.momentum'],
+                checker: { passed: true, attempts: 1, version: 'deterministic-v1' },
+                model_ids: ['mock-fast'],
+              },
+            },
+          }),
+        }),
+      )
+      sockets[0]?.onmessage?.(
+        new MessageEvent('message', {
+          data: JSON.stringify({
+            kind: 'recap',
+            match_id: 'match-1',
+            data: {
+              recap_id: 'recap-1',
+              match_id: 'match-1',
+              profile_id: 'analyst_en',
+              kind: 'half',
+              title: 'Half-time recap',
+              paragraphs: ['Kestrel Bay controlled the first half.'],
+              key_moment_ids: ['moment-1'],
+              claims: [
+                {
+                  claim_id: 'claim-1',
+                  text_span: '62% possession',
+                  metric_id: 'team.home.possession_pct',
+                  value: 62,
+                  as_of_seq: 20,
+                },
+              ],
+              status: 'verified',
+            },
+          }),
+        }),
+      )
+    })
+
+    expect(await screen.findByText('Control is shifting')).toBeInTheDocument()
+    expect(screen.getByText('VERIFIED FROM match.momentum')).toBeInTheDocument()
+    const recap = screen.getByRole('region', { name: 'Analyst match recap' })
+    expect(within(recap).getByText('Half-time recap')).toBeInTheDocument()
+    expect(within(recap).getByText('Kestrel Bay controlled the first half.')).toBeInTheDocument()
+    fireEvent.click(within(recap).getByText('1 verified claims'))
+    expect(within(recap).getByText('team.home.possession_pct')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Primary viewer profile' }), {
+      target: { value: 'casual_es' },
+    })
+    expect(screen.queryByText('Control is shifting')).not.toBeInTheDocument()
+    expect(screen.queryByText('Half-time recap')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Primary viewer profile' }), {
+      target: { value: 'analyst_en' },
+    })
+    expect(await screen.findByText('Control is shifting')).toBeInTheDocument()
+
+    act(() => {
+      sockets[0]?.onmessage?.(
+        new MessageEvent('message', {
+          data: JSON.stringify({
+            kind: 'cue',
+            match_id: 'match-1',
+            data: { action: 'remove', cue_id: 'cue-1', profile_id: 'analyst_en', reason: 'preempted' },
+          }),
+        }),
+      )
+    })
+    await waitFor(() => expect(screen.queryByText('Control is shifting')).not.toBeInTheDocument())
   })
 })
