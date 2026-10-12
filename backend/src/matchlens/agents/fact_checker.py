@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from typing import TYPE_CHECKING
 
-from matchlens.agents.verifier import verify_claims
+from matchlens.agents.verifier import verify_claims, verify_draft
 from matchlens.config import get_settings
 from matchlens.llm.client import LLMDisabledError
 from matchlens.models.insights import Claim, Insight
@@ -56,6 +56,7 @@ class FactCheckerAgent:
         record_trace: Callable[[AgentTrace], None] | None = None,
         *,
         fault_inject_rate: float | None = None,
+        record_draft: Callable[[Insight, list[CheckError]], None] | None = None,
     ) -> None:
         rate = get_settings().fault_inject_rate if fault_inject_rate is None else fault_inject_rate
         if not 0.0 <= rate <= 1.0:
@@ -64,6 +65,7 @@ class FactCheckerAgent:
         self._store = store
         self._record_trace = record_trace
         self._fault_inject_rate = rate
+        self._record_draft = record_draft
 
     async def create_insight(
         self,
@@ -78,6 +80,7 @@ class FactCheckerAgent:
         if any(snapshot.metric_id not in moment.evidence_metric_ids for snapshot in evidence):
             raise ValueError("evidence contains a metric outside the moment")
         errors: list[CheckError] = []
+        previous_draft: Insight | None = None
         for attempt in range(1, 4):
             started = time.perf_counter()
             try:
@@ -89,6 +92,7 @@ class FactCheckerAgent:
                     recent_insights,
                     errors=errors,
                     attempt=attempt,
+                    previous_draft=previous_draft,
                 )
             except LLMDisabledError:
                 self._record(moment, "template", "fallback", "LLM mode is off", started)
@@ -100,13 +104,16 @@ class FactCheckerAgent:
 
             if attempt == 1:
                 draft = self._inject_fault(draft, moment)
-            errors = await verify_claims(draft, moment, self._store)
+            errors = await verify_draft(draft, moment, evidence, self._store)
+            if self._record_draft is not None:
+                self._record_draft(draft, errors)
             if not errors:
                 self._record(moment, "verify", "approved", f"attempt={attempt}", started)
                 return draft.model_copy(update={"status": "verified"})
 
             codes = ",".join(error.code for error in errors)
             self._record(moment, "verify", "rejected", f"attempt={attempt}; {codes}", started)
+            previous_draft = draft
             if attempt < 3:
                 self._record(moment, "revise", "retry", f"attempt={attempt + 1}; {codes}")
 

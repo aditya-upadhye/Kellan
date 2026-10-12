@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from matchlens.agents.verifier import verify_claims
+from matchlens.agents.verifier import verify_claims, verify_draft
 from matchlens.models.clock import MatchClock
 from matchlens.models.insights import Claim, Insight, Moment
 from matchlens.models.metrics import MetricSnapshot
@@ -31,7 +31,7 @@ def snapshot(
         {
             "metric_id": metric_id,
             "scope": scope,
-            "subject_id": subject_id,
+            "subject_id": None if scope == "match" else subject_id,
             "label": "Test metric",
             "value": value,
             "unit": unit,
@@ -118,6 +118,51 @@ def test_number_word_with_unit_must_match_metric_unit() -> None:
     assert check(draft, [snapshot(SPEED, 34, unit="km/h")]) == []
 
 
+def test_index_metric_rejects_renamed_points_unit() -> None:
+    momentum = "match.momentum"
+    selected = moment([momentum])
+    draft = insight("Momentum stands at -15.0 points.", [claim("-15.0 points", momentum, -15.0295)])
+
+    errors = check(
+        draft,
+        [snapshot(momentum, -15.0295, unit="index")],
+        selected,
+    )
+
+    assert [error.code for error in errors] == ["unsupported_claim"]
+
+
+def test_index_metric_accepts_exact_index_unit() -> None:
+    momentum = "match.momentum"
+    selected = moment([momentum])
+    draft = insight("Momentum stands at -15.0 index.", [claim("-15.0 index", momentum, -15.0295)])
+
+    assert check(draft, [snapshot(momentum, -15.0295, unit="index")], selected) == []
+
+
+@pytest.mark.parametrize(
+    "text_span",
+    ["control index of -30.4", "momentum index at -15.0"],
+)
+def test_index_metric_accepts_unit_before_value_in_claim_span(text_span: str) -> None:
+    metric_id = "match.control_index" if text_span.startswith("control") else "match.momentum"
+    value = -30.4348 if metric_id == "match.control_index" else -15.0295
+    selected = moment([metric_id])
+    draft = insight(f"The {text_span}.", [claim(text_span, metric_id, value)])
+
+    assert check(draft, [snapshot(metric_id, value, unit="index")], selected) == []
+
+
+def test_index_metric_requires_unit_to_be_displayed() -> None:
+    momentum = "match.momentum"
+    selected = moment([momentum])
+    draft = insight("Momentum stands at -15.0.", [claim("-15.0", momentum, -15.0295)])
+
+    errors = check(draft, [snapshot(momentum, -15.0295, unit="index")], selected)
+
+    assert [error.code for error in errors] == ["unsupported_claim"]
+
+
 def test_unknown_metric_is_reported() -> None:
     draft = insight("Away xG reaches 1.4 xG.", [claim("1.4 xG", AWAY_XG)])
 
@@ -132,6 +177,19 @@ def test_claim_value_must_match_historical_metric_and_displayed_precision() -> N
     errors = check(draft, [snapshot(XG, 1.42)])
 
     assert [error.code for error in errors] == ["value_mismatch"]
+
+
+def test_unit_and_value_mismatches_are_reported_together() -> None:
+    draft = insight("Momentum is 15.0%.", [claim("15.0%", "match.momentum", -15.0295)])
+    selected = moment(["match.momentum"])
+
+    errors = check(
+        draft,
+        [snapshot("match.momentum", -15.0295, unit="index")],
+        selected,
+    )
+
+    assert [error.code for error in errors] == ["unsupported_claim", "value_mismatch"]
 
 
 def test_missing_text_span_is_reported() -> None:
@@ -184,9 +242,89 @@ def test_digits_units_and_number_words_without_claims_are_reported() -> None:
     assert errors[2].detail.startswith("70th")
 
 
+def test_uncited_football_score_words_are_reported() -> None:
+    errors = check(insight("The match remains nil-nil.", []), [])
+
+    assert [error.code for error in errors] == ["uncited_number", "uncited_number"]
+    assert all(error.detail.startswith("nil") for error in errors)
+
+
+def test_score_words_cannot_be_cited_as_one_number() -> None:
+    draft = insight("The match remains nil-nil.", [claim("nil-nil", PASSES, 0)])
+
+    errors = check(draft, [snapshot(PASSES, 0, unit="count")])
+
+    assert [error.code for error in errors] == ["unsupported_claim"]
+
+
 def test_headline_and_body_limits_are_reported() -> None:
     draft = insight("B" * 281, [], headline="A" * 61)
 
     errors = check(draft, [])
 
     assert [error.code for error in errors] == ["too_long", "too_long"]
+
+
+def test_unresolved_evidence_reference_is_reported() -> None:
+    draft = insight("Their xG reaches {Z}.", [], headline="Pressure at {A}")
+
+    errors = check(draft, [snapshot(XG, 1.42)])
+
+    assert [(error.code, error.detail) for error in errors] == [
+        ("unsupported_claim", "unresolved evidence reference {A}"),
+        ("unsupported_claim", "unresolved evidence reference {Z}"),
+    ]
+
+
+def test_each_displayed_occurrence_needs_its_own_claim() -> None:
+    draft = insight("Their xG reaches 1.4 xG, then 1.4 xG again.", [claim("1.4 xG")])
+
+    errors = check(draft, [snapshot(XG, 1.42)])
+
+    assert [(error.code, error.detail) for error in errors] == [
+        ("uncited_number", "1.4 xG at position 46")
+    ]
+
+
+def test_repeated_occurrences_pass_with_one_claim_each() -> None:
+    first = claim("1.4 xG")
+    second = first.model_copy(update={"claim_id": "claim-2"})
+    draft = insight("Their xG reaches 1.4 xG, then 1.4 xG again.", [first, second])
+
+    assert check(draft, [snapshot(XG, 1.42)]) == []
+
+
+def test_free_text_number_matching_a_cited_span_is_reported() -> None:
+    draft = insight("Home has 2 goals after 2 minutes.", [claim("2", PASSES, 2.0)])
+
+    errors = check(draft, [snapshot(PASSES, 2.0, unit="count")])
+
+    assert [(error.code, error.detail) for error in errors] == [
+        ("uncited_number", "2 at position 39")
+    ]
+
+
+def check_draft(draft: Insight, evidence: list[MetricSnapshot]) -> list[str]:
+    async def run() -> list[CheckError]:
+        store = MemoryMetricStore()
+        for item in evidence:
+            await store.put(MATCH_ID, item)
+        return await verify_draft(draft, moment(), evidence, store)
+
+    return [f"{error.code}: {error.detail}" for error in asyncio.run(run())]
+
+
+def test_draft_without_claims_is_rejected_when_evidence_is_available() -> None:
+    draft = insight("Pressure is building steadily.", [])
+
+    assert check_draft(draft, [snapshot(XG, 1.42)]) == ["unsupported_claim: no evidence cited"]
+
+
+def test_draft_without_claims_is_accepted_when_no_evidence_is_available() -> None:
+    assert check_draft(insight("Pressure is building steadily.", []), []) == []
+
+
+def test_draft_with_a_claim_is_accepted_when_evidence_is_available() -> None:
+    draft = insight("Their xG reaches 1.4 xG.", [claim("1.4 xG")])
+
+    assert check_draft(draft, [snapshot(XG, 1.42)]) == []

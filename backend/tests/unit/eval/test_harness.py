@@ -15,24 +15,25 @@ if TYPE_CHECKING:
 
 
 def test_mock_fixture_corrects_deliberately_wrong_draft() -> None:
-    moment_id = next(
-        f"fixture-moment-{index}"
+    value = next(
+        index / 10
         for index in range(1000)
-        if sha256(f"fixture-moment-{index}".encode()).digest()[0] % 10 == 0
+        if sha256(f"goal:A:{index / 10}".encode()).digest()[0] % 10 == 0
     )
     payload = {
-        "moment": {"moment_id": moment_id},
         "moment_type": "goal",
-        "evidence": [{"metric_id": "team.home.xg", "value": 0.7, "unit": "xG", "as_of_seq": 10}],
+        "evidence": [{"key": "A", "label": "Expected goals", "value": value, "unit": "xG"}],
         "check_errors": [],
     }
 
     first = mock_explainer(json.dumps(payload))
-    payload["check_errors"] = [{"code": "value_mismatch", "detail": "wrong value"}]
+    payload["check_errors"] = [{"code": "uncited_number", "detail": "typed number"}]
     revised = mock_explainer(json.dumps(payload))
 
-    assert first["claims"][0]["value"] == 1.7
-    assert revised["claims"][0]["value"] == 0.7
+    assert [part["evidence_key"] for part in first["body"]] == [None]
+    assert str(value + 1) in first["body"][0]["text"]
+    assert [part["evidence_key"] for part in revised["body"]] == ["A", None]
+    assert "claims" not in first
 
 
 def test_report_writes_machine_and_readable_results(tmp_path: Path) -> None:
@@ -91,3 +92,8 @@ def test_full_mock_match_catches_faults_before_output() -> None:
     assert summary["faults_caught"] == summary["faults_injected"]
     assert summary["unverified_claims"] == 0
     assert summary["fallbacks"] == 0
+    outcomes = report["matches"][0]["outcomes"]
+    assert len(outcomes) == summary["moments"]
+    assert all(outcome["status"] == "verified" for outcome in outcomes)
+    assert all(outcome["draft_errors"] == [] for outcome in outcomes)
+    assert any(outcome["rejections"] for outcome in outcomes)

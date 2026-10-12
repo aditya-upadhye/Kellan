@@ -9,6 +9,7 @@ from statistics import mean
 from typing import TYPE_CHECKING, Any
 
 from matchlens.agents.detector import DetectorAgent
+from matchlens.agents.evidence import moment_evidence
 from matchlens.agents.explainer import ExplainerAgent
 from matchlens.agents.fact_checker import FactCheckerAgent
 from matchlens.agents.triggers import RuleTriggerEngine
@@ -31,7 +32,6 @@ if TYPE_CHECKING:
     from matchlens.models.base import TeamSide
     from matchlens.models.insights import Insight, Moment
     from matchlens.models.match import MatchMetadata
-    from matchlens.models.metrics import MetricSnapshot
     from matchlens.models.traces import AgentName, AgentTrace
 
 
@@ -53,34 +53,23 @@ def _mock_detector(user: str) -> dict[str, object]:
 def mock_explainer(user: str) -> dict[str, Any]:
     request = json.loads(user)
     evidence = request["evidence"]
-    claims: list[dict[str, object]] = []
+    prose = "A recorded metric for this moment stands at "
     if evidence:
         snapshot = evidence[0]
-        value = float(snapshot["value"])
-        displayed = f"{value:.4f}".rstrip("0").rstrip(".")
-        suffix = f" {snapshot['unit']}" if snapshot["unit"] else ""
-        span = f"{displayed}{suffix}"
-        claim_value = value
-        digest = sha256(request["moment"]["moment_id"].encode()).digest()
+        digest = sha256(
+            f"{request['moment_type']}:{snapshot['key']}:{snapshot['value']}".encode()
+        ).digest()
         if not request["check_errors"] and digest[0] % 10 == 0:
-            claim_value += 1.0
-        claims.append(
-            {
-                "text_span": span,
-                "metric_id": snapshot["metric_id"],
-                "value": claim_value,
-                "as_of_seq": snapshot["as_of_seq"],
-            }
-        )
-        body = f"A recorded metric for this moment stands at {span}."
+            wrong = f"{float(snapshot['value']) + 1.0:.4f}".rstrip("0").rstrip(".")
+            body = [{"text": f"{prose}{wrong}.", "evidence_key": None}]
+        else:
+            body = [
+                {"text": prose, "evidence_key": snapshot["key"]},
+                {"text": ".", "evidence_key": None},
+            ]
     else:
-        body = "This moment changes the course of play."
-    return {
-        "headline": "A match moment stands out",
-        "body": body,
-        "claims": claims,
-        "tags": [request["moment_type"]],
-    }
+        body = [{"text": "This moment changes the course of play.", "evidence_key": None}]
+    return {"headline": "A match moment stands out", "body": body, "tags": [request["moment_type"]]}
 
 
 def _names(metadata: MatchMetadata) -> dict[str, str]:
@@ -95,14 +84,6 @@ def _names(metadata: MatchMetadata) -> dict[str, str]:
     }
 
 
-async def _evidence(moment: Moment, store: MemoryMetricStore) -> list[MetricSnapshot]:
-    snapshots = [
-        await store.get(moment.match_id, metric_id, moment.seq_end)
-        for metric_id in moment.evidence_metric_ids
-    ]
-    return [snapshot for snapshot in snapshots if snapshot is not None]
-
-
 @dataclass(slots=True)
 class _EvalState:
     checker: FactCheckerAgent
@@ -111,14 +92,18 @@ class _EvalState:
     names: dict[str, str]
     recent: list[Insight]
     durations_ms: list[float]
+    traces: list[AgentTrace]
+    outcomes: list[dict[str, Any]]
 
 
 async def _check_moments(moments: list[Moment], state: _EvalState) -> None:
     for moment in moments:
         started = time.perf_counter()
+        evidence = await moment_evidence(moment, state.store)
+        trace_start = len(state.traces)
         insight = await state.checker.create_insight(
             moment,
-            await _evidence(moment, state.store),
+            evidence,
             state.score,
             state.names,
             state.recent[-3:],
@@ -128,6 +113,27 @@ async def _check_moments(moments: list[Moment], state: _EvalState) -> None:
         if insight.status not in {"verified", "fallback"} or errors:
             raise RuntimeError(f"unverified insight for {moment.moment_id}: {errors}")
         state.recent.append(insight)
+        moment_traces = state.traces[trace_start:]
+        state.outcomes.append(
+            {
+                "moment_id": moment.moment_id,
+                "moment_type": moment.type,
+                "evidence_count": len(evidence),
+                "status": insight.status,
+                "attempts": insight.attempts,
+                "claim_count": len(insight.claims),
+                "rejections": [
+                    trace.detail
+                    for trace in moment_traces
+                    if trace.action == "verify" and trace.status == "rejected"
+                ],
+                "draft_errors": [
+                    trace.detail
+                    for trace in moment_traces
+                    if trace.action == "draft" and trace.status == "error"
+                ],
+            }
+        )
 
 
 async def evaluate_match(
@@ -160,7 +166,9 @@ async def evaluate_match(
     score: dict[TeamSide, int] = {"home": 0, "away": 0}
     recent: list[Insight] = []
     durations_ms: list[float] = []
-    state = _EvalState(checker, store, score, _names(match.metadata), recent, durations_ms)
+    state = _EvalState(
+        checker, store, score, _names(match.metadata), recent, durations_ms, traces, []
+    )
     inputs = sorted(
         [*match.events, *match.frames],
         key=lambda item: (item.clock.period, item.clock.ms, isinstance(item, TrackingFrame)),
@@ -213,6 +221,7 @@ async def evaluate_match(
         "tokens_out": sum(trace.tokens_out for trace in calls),
         "insight_latency_ms": durations_ms,
         "statuses": dict(Counter(insight.status for insight in recent)),
+        "outcomes": state.outcomes,
     }
 
 
