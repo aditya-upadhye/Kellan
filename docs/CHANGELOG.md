@@ -10,6 +10,12 @@ All notable changes are recorded here, one section per milestone tag.
 - Deterministic claim verification checks historical metric values at each claim's `as_of_seq`, displayed rounding and units, evidence membership, exact text spans, uncited digits and English number words, and headline/body limits. It returns structured error codes for the retry stage.
 - Fact-Checker retries rejected drafts up to twice with structured verifier errors, records rejection and retry traces, and approves only drafts with no verification errors. Disabled or failed model calls and exhausted retries use a deterministic moment template; metric evidence is included only when the completed template passes the same verifier.
 - `FAULT_INJECT_RATE` deterministically corrupts one claim value on the first draft of a selected moment before verification. The checker traces the injection, rejects the mismatched claim, and allows a corrected revision or safe fallback. A zero rate leaves drafts untouched.
+- The M5 evaluation command replays full tracked matches through metrics, moments, Detector and fact-checked insights; it fails if an unverified insight or uncaught injected claim would ship. `make eval` writes a machine-readable report and a Markdown summary. The mock baseline covers three scenarios and three seeds; a separate fault run covers one seed per scenario.
+
+### Verified
+
+- Nine mock matches produced 240 moments and 205 verified numeric claims, with zero unverified claims, zero fallbacks and a 90.8% first-pass verification rate. A separate three-match run at fault rate 1.0 caught all 69 injected claim errors before output.
+- The Foundry full-match evaluation remains pending; the current report contains mock results only.
 
 ## [m4] — LLM layer and deterministic moment detection
 

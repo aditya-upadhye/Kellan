@@ -10,7 +10,7 @@ SEED ?= 42
 .PHONY: help setup backend-setup frontend-setup \
 	lint backend-lint frontend-lint format \
 	test backend-test backend-test-fast frontend-test test-azure \
-	build audit backend-audit frontend-audit secrets-scan schemas sim
+	build audit backend-audit frontend-audit secrets-scan schemas sim eval
 
 help: ## List available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -55,6 +55,9 @@ test-azure: ## Run tests against real Azure resources
 
 sim: ## Simulate a scenario into data/samples (SCENARIO=balanced SEED=42)
 	$(UV_RUN) matchlens sim --scenario $(SCENARIO) --seed $(SEED)
+
+eval: ## Evaluate three scenarios and three seeds in mock mode
+	$(UV_RUN) matchlens eval --scenarios all --seeds 1,2,3 --llm mock
 
 schemas: ## Regenerate JSON Schemas for the data contracts
 	$(UV_RUN) matchlens schemas export --output-dir ../docs/schemas

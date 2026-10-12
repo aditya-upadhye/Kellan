@@ -1,0 +1,225 @@
+{
+  "fault_rate": 0.0,
+  "matches": [
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 27,
+      "insight_latency_p50_ms": 1.4,
+      "insight_latency_p95_ms": 2.2,
+      "llm_calls": 79,
+      "match_id": "balanced-s1",
+      "moments": 27,
+      "scenario": "balanced",
+      "seed": 1,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 26555,
+      "tokens_out": 3307,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 28,
+      "insight_latency_p50_ms": 1.57,
+      "insight_latency_p95_ms": 2.51,
+      "llm_calls": 80,
+      "match_id": "balanced-s2",
+      "moments": 29,
+      "scenario": "balanced",
+      "seed": 2,
+      "statuses": {
+        "verified": 29
+      },
+      "tokens_in": 28369,
+      "tokens_out": 3361,
+      "unverified_claims": 0,
+      "verified": 29
+    },
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 20,
+      "insight_latency_p50_ms": 1.51,
+      "insight_latency_p95_ms": 3.23,
+      "llm_calls": 82,
+      "match_id": "balanced-s3",
+      "moments": 24,
+      "scenario": "balanced",
+      "seed": 3,
+      "statuses": {
+        "verified": 24
+      },
+      "tokens_in": 27995,
+      "tokens_out": 3530,
+      "unverified_claims": 0,
+      "verified": 24
+    },
+    {
+      "claims": 26,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 23,
+      "insight_latency_p50_ms": 1.57,
+      "insight_latency_p95_ms": 3.05,
+      "llm_calls": 103,
+      "match_id": "late_comeback-s1",
+      "moments": 30,
+      "scenario": "late_comeback",
+      "seed": 1,
+      "statuses": {
+        "verified": 30
+      },
+      "tokens_in": 38328,
+      "tokens_out": 4500,
+      "unverified_claims": 0,
+      "verified": 30
+    },
+    {
+      "claims": 26,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 23,
+      "insight_latency_p50_ms": 1.69,
+      "insight_latency_p95_ms": 2.6,
+      "llm_calls": 91,
+      "match_id": "late_comeback-s2",
+      "moments": 26,
+      "scenario": "late_comeback",
+      "seed": 2,
+      "statuses": {
+        "verified": 26
+      },
+      "tokens_in": 32136,
+      "tokens_out": 4119,
+      "unverified_claims": 0,
+      "verified": 26
+    },
+    {
+      "claims": 24,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 26,
+      "insight_latency_p50_ms": 1.54,
+      "insight_latency_p95_ms": 2.76,
+      "llm_calls": 101,
+      "match_id": "late_comeback-s3",
+      "moments": 27,
+      "scenario": "late_comeback",
+      "seed": 3,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 32997,
+      "tokens_out": 4395,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 26,
+      "insight_latency_p50_ms": 1.4,
+      "insight_latency_p95_ms": 2.73,
+      "llm_calls": 91,
+      "match_id": "red_card_press-s1",
+      "moments": 27,
+      "scenario": "red_card_press",
+      "seed": 1,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 30741,
+      "tokens_out": 3971,
+      "unverified_claims": 0,
+      "verified": 27
+    },
+    {
+      "claims": 20,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 20,
+      "insight_latency_p50_ms": 1.51,
+      "insight_latency_p95_ms": 2.63,
+      "llm_calls": 81,
+      "match_id": "red_card_press-s2",
+      "moments": 23,
+      "scenario": "red_card_press",
+      "seed": 2,
+      "statuses": {
+        "verified": 23
+      },
+      "tokens_in": 27169,
+      "tokens_out": 3499,
+      "unverified_claims": 0,
+      "verified": 23
+    },
+    {
+      "claims": 23,
+      "fallbacks": 0,
+      "faults_caught": 0,
+      "faults_injected": 0,
+      "first_pass": 25,
+      "insight_latency_p50_ms": 1.69,
+      "insight_latency_p95_ms": 71.86,
+      "llm_calls": 98,
+      "match_id": "red_card_press-s3",
+      "moments": 27,
+      "scenario": "red_card_press",
+      "seed": 3,
+      "statuses": {
+        "verified": 27
+      },
+      "tokens_in": 32815,
+      "tokens_out": 4438,
+      "unverified_claims": 0,
+      "verified": 27
+    }
+  ],
+  "mode": "mock",
+  "scenarios": [
+    "balanced",
+    "late_comeback",
+    "red_card_press"
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "summary": {
+    "claims": 205,
+    "fallback_rate": 0.0,
+    "fallbacks": 0,
+    "fault_catch_rate": null,
+    "faults_caught": 0,
+    "faults_injected": 0,
+    "first_pass": 218,
+    "first_pass_rate": 0.9083,
+    "insight_latency_p50_ms": 1.55,
+    "insight_latency_p95_ms": 2.93,
+    "llm_calls": 806,
+    "matches": 9,
+    "moments": 240,
+    "moments_per_match": 26.67,
+    "tokens_in": 277105,
+    "tokens_out": 35120,
+    "unverified_claims": 0,
+    "verified": 240
+  }
+}
