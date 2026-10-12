@@ -49,9 +49,60 @@ def personalizer_response(user: str) -> dict[str, Any]:
     return {"headline": headline, "body": [{"text": prose, "claim_key": key}]}
 
 
+def recap_response(user: str) -> dict[str, Any]:
+    request = json.loads(user)
+    spanish = request["profile"]["language"] == "es"
+    evidence = request["final_snapshots"]
+    key = evidence[0]["key"] if evidence else None
+    label = evidence[0]["label"].lower() if evidence else ""
+    opening = f"El registro muestra {label}: " if spanish else f"The record shows {label}: "
+    paragraphs = [
+        {"parts": [{"text": opening, "evidence_key": key}]}
+        if key
+        else {
+            "parts": [
+                {
+                    "text": (
+                        "El partido deja momentos destacados."
+                        if spanish
+                        else "The match leaves notable moments."
+                    ),
+                    "evidence_key": None,
+                }
+            ]
+        },
+        {
+            "parts": [
+                {
+                    "text": (
+                        "El juego queda resumido en los momentos verificados."
+                        if spanish
+                        else "Verified moments shape the story of the match."
+                    ),
+                    "evidence_key": None,
+                }
+            ]
+        },
+        {
+            "parts": [
+                {
+                    "text": (
+                        "El relato sigue la acción registrada."
+                        if spanish
+                        else "The account follows the recorded play."
+                    ),
+                    "evidence_key": None,
+                }
+            ]
+        },
+    ]
+    return {"paragraphs": paragraphs}
+
+
 def live_responses() -> dict[tuple[AgentName, str], MockResponse]:
     return {
         ("detector", "batch"): detector_response,
         ("explainer", "default"): explainer_response,
         ("personalizer", "default"): personalizer_response,
+        ("producer", "recap"): recap_response,
     }

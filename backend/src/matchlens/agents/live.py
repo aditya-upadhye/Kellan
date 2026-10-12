@@ -4,10 +4,11 @@ import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 from time import monotonic
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from matchlens.agents.detector import DETECTOR_INTERVAL_MS, DetectorAgent
 from matchlens.agents.producer import ProducerScheduler, ScheduleResult
+from matchlens.agents.recap import RecapAgent, RecapSource
 from matchlens.agents.timing import MatchTimeline
 from matchlens.agents.triggers import CRITICAL_MOMENTS, RuleTriggerEngine
 from matchlens.agents.workflow import (
@@ -21,8 +22,10 @@ from matchlens.agents.workflow import (
 )
 from matchlens.llm.runtime import RuntimeLLMClient
 from matchlens.models.clock import MatchClock
+from matchlens.models.cues import Recap
 from matchlens.models.envelope import StreamEnvelope
-from matchlens.models.events import GoalEvent
+from matchlens.models.events import GoalEvent, PeriodEndEvent
+from matchlens.models.insights import Claim, Insight, Moment
 from matchlens.models.traces import AgentTrace
 from matchlens.obs.telemetry import current_trace_id
 
@@ -31,8 +34,8 @@ if TYPE_CHECKING:
 
     from matchlens.config import Settings
     from matchlens.models.base import TeamSide
+    from matchlens.models.cues import RecapKind
     from matchlens.models.events import MatchEvent
-    from matchlens.models.insights import Insight, Moment
     from matchlens.models.match import MatchMetadata
     from matchlens.models.metrics import MetricSnapshot
     from matchlens.models.profiles import ViewerProfile
@@ -68,6 +71,12 @@ class LiveAgentWorkflow:
         self.insights: list[Insight] = []
         self._contexts: dict[str, MomentWork] = {}
         self._candidates: dict[str, Moment] = {}
+        self._selection_lock = asyncio.Lock()
+        self._delivery_condition = asyncio.Condition()
+        self._profile_sources: dict[str, dict[str, RecapSource]] = {
+            profile.profile_id: {} for profile in profiles
+        }
+        self._recap_tasks: set[asyncio.Task[None]] = set()
         self._last_review = 0
         self._last_admitted = 0
         self._seen: set[str] = set()
@@ -104,6 +113,12 @@ class LiveAgentWorkflow:
             self._last_review = elapsed
             self._wake_detector.set()
         self._schedule(self._scheduler.advance(self._clock, self._wall_ms()))
+        if isinstance(item, PeriodEndEvent):
+            task = asyncio.create_task(
+                self._generate_half_recaps(item.seq, elapsed, self._store.snapshot())
+            )
+            self._recap_tasks.add(task)
+            task.add_done_callback(self._recap_tasks.discard)
         self._discard_stale_contexts()
         await asyncio.sleep(0)
 
@@ -124,7 +139,8 @@ class LiveAgentWorkflow:
                 return
 
     async def _select(self, request: DetectionRequest) -> None:
-        result = await selection_workflow(self._detector).run(request)
+        async with self._selection_lock:
+            result = await selection_workflow(self._detector).run(request)
         for output in result.get_outputs():
             if not isinstance(output, SelectedMoments):
                 raise TypeError("unexpected Detector workflow output")
@@ -180,6 +196,17 @@ class LiveAgentWorkflow:
                 if result is not None:
                     self.insights.append(result.insight)
                     for cue in result.cues:
+                        raw_claims = cue.data.get("claims", [])
+                        claims = tuple(
+                            Claim.model_validate(item)
+                            for item in cast("list[dict[str, object]]", raw_claims)
+                        )
+                        self._profile_sources[cue.profile_id][moment.moment_id] = RecapSource(
+                            moment=moment,
+                            headline=cue.headline,
+                            body=cue.body,
+                            claims=claims,
+                        )
                         self._schedule(
                             self._scheduler.offer(cue, moment.type, self._clock, self._wall_ms())
                         )
@@ -189,7 +216,78 @@ class LiveAgentWorkflow:
                 self._trace(moment.moment_id, "drop", "rejected", "cue expired during generation")
             finally:
                 self._inflight.pop(moment.moment_id, None)
+                async with self._delivery_condition:
+                    self._delivery_condition.notify_all()
                 self._delivery.task_done()
+
+    async def _generate_half_recaps(
+        self, through_seq: int, elapsed: int, cutoff: MemoryMetricStore
+    ) -> None:
+        try:
+            candidates: list[Moment] = []
+            for moment_id, moment in tuple(self._candidates.items()):
+                if moment.seq_end <= through_seq:
+                    candidates.append(self._candidates.pop(moment_id))
+            await self._select(
+                DetectionRequest(candidates, elapsed, flush=True, through_seq=through_seq)
+            )
+            async with asyncio.timeout(10):
+                async with self._delivery_condition:
+                    await self._delivery_condition.wait_for(
+                        lambda: (
+                            not any(
+                                moment.seq_end <= through_seq
+                                for moment, _ in self._inflight.values()
+                            )
+                        )
+                    )
+        except TimeoutError:
+            self._trace("recap", "wait", "fallback", "halftime insight delivery timed out")
+        except Exception as error:
+            self._trace("recap", "generate", "error", type(error).__name__)
+            return
+        await self._create_recaps("half", cutoff, through_seq)
+
+    async def _create_recaps(
+        self, kind: RecapKind, store: MemoryMetricStore, through_seq: int | None = None
+    ) -> None:
+        snapshots = await store.latest(self._match_id)
+        if through_seq is not None:
+            snapshots = [item for item in snapshots if item.as_of_seq <= through_seq]
+        agent = RecapAgent(
+            self.client,
+            self._services.settings.strong_model or "mock-strong",
+            self._match_id,
+            self._record_trace,
+        )
+        results = await asyncio.gather(
+            *(
+                agent.create_recap(
+                    kind,
+                    profile,
+                    [
+                        source
+                        for source in self._profile_sources[profile.profile_id].values()
+                        if through_seq is None or source.moment.seq_end <= through_seq
+                    ],
+                    snapshots,
+                    store,
+                )
+                for profile in self._services.profiles
+            ),
+            return_exceptions=True,
+        )
+        for result in results:
+            if not isinstance(result, Recap):
+                self._trace("recap", "generate", "error", type(result).__name__)
+                continue
+            self._emit(
+                StreamEnvelope(
+                    kind="recap",
+                    match_id=self._match_id,
+                    data=result.model_dump(mode="json"),
+                )
+            )
 
     async def _tick(self) -> None:
         while True:
@@ -269,7 +367,10 @@ class LiveAgentWorkflow:
         self._ending = True
         self._wake_detector.set()
         await self._detector_task
+        if self._recap_tasks:
+            await asyncio.gather(*tuple(self._recap_tasks), return_exceptions=True)
         await self._delivery.join()
+        await self._create_recaps("full", self._store.snapshot())
         await self.close()
 
     async def close(self) -> None:

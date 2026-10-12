@@ -70,11 +70,21 @@ class DetectorAgent:
         reviewed = await self._review(state_summary, elapsed_ms)
         return sorted([*critical, *reviewed], key=lambda item: (item.seq_start, item.moment_id))
 
-    async def flush(self, elapsed_ms: int) -> list[Moment]:
+    async def flush(
+        self,
+        elapsed_ms: int,
+        candidates: list[Moment] | None = None,
+        through_seq: int | None = None,
+    ) -> list[Moment]:
         if elapsed_ms < 0:
             raise ValueError("elapsed_ms must be non-negative")
-        reviewed = await self._review({}, elapsed_ms)
-        return sorted(reviewed, key=lambda item: (item.seq_start, item.moment_id))
+        incoming = candidates or []
+        critical = self.critical_moments(incoming)
+        for candidate in incoming:
+            if candidate.type not in CRITICAL_TYPES:
+                self._pending[candidate.moment_id] = candidate
+        reviewed = await self._review({}, elapsed_ms, through_seq)
+        return sorted([*critical, *reviewed], key=lambda item: (item.seq_start, item.moment_id))
 
     def critical_moments(self, candidates: list[Moment]) -> list[Moment]:
         critical = [candidate for candidate in candidates if candidate.type in CRITICAL_TYPES]
@@ -87,29 +97,44 @@ class DetectorAgent:
         return critical
 
     async def _review(
-        self, state_summary: Mapping[str, str | float], elapsed_ms: int
+        self,
+        state_summary: Mapping[str, str | float],
+        elapsed_ms: int,
+        through_seq: int | None = None,
     ) -> list[Moment]:
         while self._next_review_ms <= elapsed_ms:
             self._next_review_ms += DETECTOR_INTERVAL_MS
-        if not self._pending and self._deferred is None:
+        pending = [
+            candidate
+            for candidate in self._pending.values()
+            if through_seq is None or candidate.seq_end <= through_seq
+        ]
+        pending_ids = {candidate.moment_id for candidate in pending}
+        self._pending = {
+            moment_id: candidate
+            for moment_id, candidate in self._pending.items()
+            if moment_id not in pending_ids
+        }
+        include_deferred = self._deferred is not None and (
+            through_seq is None or self._deferred.seq_end <= through_seq
+        )
+        if not pending and not include_deferred:
             return []
-        match_id = next(iter(self._pending.values())).match_id if self._pending else None
-        if match_id is None and self._deferred is not None:
+        match_id = pending[0].match_id if pending else None
+        if match_id is None and include_deferred and self._deferred is not None:
             match_id = self._deferred.match_id
         tracer = trace.get_tracer("matchlens.detector")
         with tracer.start_as_current_span("matchlens.detector.review") as span:
             span.set_attribute("matchlens.elapsed_ms", elapsed_ms)
             if match_id is not None:
                 span.set_attribute("matchlens.match_id", match_id)
-            span.set_attribute("matchlens.candidate_count", len(self._pending))
-            if not self._pending:
-                emitted = self._limit_noncritical([], elapsed_ms)
+            span.set_attribute("matchlens.candidate_count", len(pending))
+            if not pending:
+                emitted = self._limit_noncritical([], elapsed_ms, include_deferred=include_deferred)
                 self._record_pacing([], emitted)
                 span.set_attribute("matchlens.emitted_count", len(emitted))
                 return emitted
 
-            pending = list(self._pending.values())
-            self._pending.clear()
             started = time.perf_counter()
             response: DetectorResponse | None = None
             fallback_reason = ""
@@ -123,7 +148,9 @@ class DetectorAgent:
                 span.set_attribute("matchlens.fallback_reason", fallback_reason)
             latency_ms = round((time.perf_counter() - started) * 1000)
             self._record_decisions(pending, response, fallback_reason, latency_ms)
-            emitted = self._limit_noncritical(reviewed, elapsed_ms)
+            emitted = self._limit_noncritical(
+                reviewed, elapsed_ms, include_deferred=include_deferred
+            )
             self._record_pacing(reviewed, emitted)
             span.set_attribute("matchlens.emitted_count", len(emitted))
             return emitted
@@ -254,9 +281,15 @@ class DetectorAgent:
             grouped_ids.update(group_ids)
         return sorted(kept.values(), key=lambda item: (item.seq_start, item.moment_id))
 
-    def _limit_noncritical(self, candidates: list[Moment], elapsed_ms: int) -> list[Moment]:
+    def _limit_noncritical(
+        self,
+        candidates: list[Moment],
+        elapsed_ms: int,
+        *,
+        include_deferred: bool = True,
+    ) -> list[Moment]:
         eligible = [candidate for candidate in candidates if candidate.type not in CRITICAL_TYPES]
-        if self._deferred is not None:
+        if include_deferred and self._deferred is not None:
             eligible.append(self._deferred)
         if (
             self._last_noncritical_ms is not None

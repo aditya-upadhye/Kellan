@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Any
 
 from matchlens.agents.detector import DetectorAgent
@@ -107,6 +108,26 @@ def test_noncritical_candidate_waits_five_minutes() -> None:
     assert asyncio.run(detector.evaluate([second], {}, 30_000)) == []
     assert asyncio.run(detector.evaluate([], {}, 135_000)) == []
     assert len(asyncio.run(detector.evaluate([], {}, 315_000))) == 1
+
+
+def test_flush_reviews_only_candidates_through_requested_sequence() -> None:
+    first, later = candidate(1), candidate(2)
+
+    def decide(user: str) -> dict[str, Any]:
+        return {
+            "decisions": [
+                {"moment_id": item["moment_id"], "keep": True, "significance": 0.8}
+                for item in json.loads(user)["candidates"]
+            ],
+            "merge_groups": [],
+        }
+
+    detector = DetectorAgent(MockLLMClient({("detector", "batch"): decide}), "fast")
+    flushed = asyncio.run(detector.flush(1_000, [first, later], through_seq=1))
+    remainder = asyncio.run(detector.flush(315_000, through_seq=2))
+
+    assert [item.moment_id for item in flushed] == [first.moment_id]
+    assert [item.moment_id for item in remainder] == [later.moment_id]
 
 
 def test_invalid_response_falls_back_for_entire_batch() -> None:

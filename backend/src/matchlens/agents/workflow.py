@@ -35,6 +35,7 @@ class DetectionRequest:
     elapsed_ms: int
     critical: bool = False
     flush: bool = False
+    through_seq: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,9 @@ def selection_workflow(detector: DetectorAgent) -> Workflow:
         if request.critical:
             moments = detector.critical_moments(request.candidates)
         elif request.flush:
-            moments = await detector.flush(request.elapsed_ms)
+            moments = await detector.flush(
+                request.elapsed_ms, request.candidates, request.through_seq
+            )
         else:
             moments = await detector.evaluate(request.candidates, {}, request.elapsed_ms)
         await ctx.yield_output(SelectedMoments(tuple(moments)))

@@ -11,7 +11,7 @@ from matchlens.agents.live import LiveAgentWorkflow
 from matchlens.config import LLMMode, Settings
 from matchlens.metrics.engine import MetricsEngine
 from matchlens.models.base import Contract, TeamSide
-from matchlens.models.cues import OverlayCue
+from matchlens.models.cues import OverlayCue, Recap
 from matchlens.models.envelope import StreamEnvelope
 from matchlens.models.events import BaseEvent, GoalEvent, MatchEvent
 from matchlens.models.match import MatchMetadata
@@ -68,6 +68,7 @@ class MatchSession:
     error: str | None = None
     workflow: LiveAgentWorkflow | None = None
     cues: list[OverlayCue] = field(default_factory=list[OverlayCue])
+    recaps: dict[tuple[str, str], Recap] = field(default_factory=dict[tuple[str, str], Recap])
     traces: list[AgentTrace] = field(default_factory=list[AgentTrace])
     active_cues: dict[str, tuple[OverlayCue, int]] = field(
         default_factory=dict[str, tuple[OverlayCue, int]]
@@ -88,7 +89,7 @@ class MatchSession:
         self.publish_nowait(message)
 
     def publish_nowait(self, message: StreamEnvelope) -> None:
-        if message.kind in ("event", "frame", "trace"):
+        if message.kind in ("event", "frame", "trace", "recap"):
             self.history.append(message)
         if message.kind == "trace":
             self.traces.append(AgentTrace.model_validate(message.data))
@@ -101,6 +102,9 @@ class MatchSession:
                 self.active_cues[cue.cue_id] = (cue, int(monotonic() * 1000))
             elif message.data.get("action") == "remove":
                 self.active_cues.pop(str(message.data["cue_id"]), None)
+        elif message.kind == "recap":
+            recap = Recap.model_validate(message.data)
+            self.recaps[recap.profile_id, recap.kind] = recap
         for queue in tuple(self.subscribers):
             queue.put_nowait(message)
 
@@ -303,7 +307,12 @@ async def session_stream(
     try:
         yield _status(session)
         for message in history:
-            yield message
+            if (
+                message.kind != "recap"
+                or profiles is None
+                or message.data.get("profile_id") in profiles
+            ):
+                yield message
         for message in active_cues:
             if profiles is None or message.data.get("profile_id") in profiles:
                 yield message
@@ -318,7 +327,7 @@ async def session_stream(
         while True:
             message = await queue.get()
             if (
-                message.kind != "cue"
+                message.kind not in {"cue", "recap"}
                 or profiles is None
                 or message.data.get("profile_id") in profiles
             ):
