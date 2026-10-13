@@ -11,6 +11,8 @@ All notable changes are recorded here, one section per milestone tag.
 - Added `azd` project configuration for building and deploying the API and web images to their tagged Container Apps. The backend production image installs the Azure and Foundry extras and runs as a non-root user.
 - Switched Foundry authentication to `DefaultAzureCredential`, enabling the same client to use local Azure CLI sign-in and the Container App managed identity.
 - Added a manual, main-branch-only GitHub Actions deployment workflow using OIDC and documented Azure/GitHub setup.
+- Added public Judge mode with a fixed late-comeback fixture, 10× playback, and all four seeded viewer profiles. Added bounded concurrent starts, per-IP hourly start limits, idle-match stopping, and an LLM call budget that switches to traced deterministic fallbacks.
+- Added deployment settings for Judge mode and trusted client-IP forwarding through the web ingress.
 
 ### Verified
 

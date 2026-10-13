@@ -342,8 +342,12 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'EVENTHUBS_NAME', value: matchEvents.name }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
+            { name: 'JUDGE_MODE', value: 'true' }
             { name: 'MAX_CONCURRENT_MATCHES', value: '2' }
             { name: 'MAX_LLM_CALLS_PER_MATCH', value: '400' }
+            { name: 'MAX_MATCH_STARTS_PER_IP_PER_HOUR', value: '3' }
+            { name: 'MATCH_IDLE_TIMEOUT_SECONDS', value: '900' }
+            { name: 'TRUST_PROXY_CLIENT_IP', value: 'true' }
           ]
           resources: {
             cpu: json('0.5')

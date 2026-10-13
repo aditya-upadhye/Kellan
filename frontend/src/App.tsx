@@ -10,7 +10,7 @@ import type { OverlayCue } from './generated/OverlayCue'
 import type { Recap } from './generated/Recap'
 
 type PlaybackSpeed = 1 | 10 | 30 | 60 | 'max'
-type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error'
+type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error' | 'stopped'
 type LiveCue = OverlayCue & { removing?: boolean }
 
 interface Scenario {
@@ -87,6 +87,7 @@ function App() {
   const [scenario, setScenario] = useState('balanced')
   const [seed, setSeed] = useState(42)
   const [speed, setSpeed] = useState<PlaybackSpeed>(10)
+  const [judgeMode, setJudgeMode] = useState(false)
   const [profiles, setProfiles] = useState<ViewerProfile[]>([])
   const [primaryProfileId, setPrimaryProfileId] = useState('analyst_en')
   const [secondaryProfileId, setSecondaryProfileId] = useState('casual_en')
@@ -154,6 +155,31 @@ function App() {
   }, [])
 
   useEffect(() => {
+    let active = true
+    fetch('/api/config')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load deployment settings')
+        return (await response.json()) as { judge_mode?: boolean }
+      })
+      .then((config) => {
+        if (active) {
+          setJudgeMode(config.judge_mode === true)
+          if (config.judge_mode === true) {
+            setScenario('late_comeback')
+            setSeed(1)
+            setSpeed(10)
+          }
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'API is unavailable')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!matchId) return
     const socketUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/matches/${matchId}`
     const socket = new WebSocket(socketUrl)
@@ -177,7 +203,8 @@ function App() {
               nextStatus === 'running' ||
               nextStatus === 'paused' ||
               nextStatus === 'complete' ||
-              nextStatus === 'error'
+              nextStatus === 'error' ||
+              nextStatus === 'stopped'
                 ? nextStatus
                 : current.status,
             speed:
@@ -280,7 +307,7 @@ function App() {
     }
   }
 
-  async function startMatch() {
+  async function startMatch(useJudgePreset = false) {
     setBusy(true)
     setError(null)
     setSocketState('connecting')
@@ -297,7 +324,16 @@ function App() {
       const response = await fetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario, seed, speed }),
+        body: JSON.stringify(
+          useJudgePreset || judgeMode
+            ? {
+                scenario: 'late_comeback',
+                seed: 1,
+                speed: 10,
+                profiles: profiles.map((profile) => profile.profile_id),
+              }
+            : { scenario, seed, speed },
+        ),
       })
       const result = (await response.json()) as { match_id?: string; detail?: string }
       if (!response.ok || !result.match_id) throw new Error(result.detail ?? 'Could not start match')
@@ -442,8 +478,8 @@ function App() {
         <section className="kickoff-card" aria-labelledby="kickoff-title">
           <div className="kickoff-copy">
             <span className="step-number">01 <i> / SET UP</i></span>
-            <h2 id="kickoff-title">Choose your fixture</h2>
-            <p>Pick a match scenario, set the seed, and watch the simulation unfold.</p>
+            <h2 id="kickoff-title">{judgeMode ? 'Judge mode' : 'Choose your fixture'}</h2>
+            <p>{judgeMode ? 'The judge preset runs the late comeback at 10x with every viewer profile.' : 'Pick a match scenario, set the seed, and watch the simulation unfold.'}</p>
             <div className="fixture-preview">
               <div className="fixture-team"><span className="team-crest crest-home">{selectedScenario?.name === 'red_card_press' ? 'PHF' : selectedScenario?.name === 'late_comeback' ? 'VEL' : 'KBA'}</span><span>{selectedScenario?.name === 'red_card_press' ? 'Port Halden FC' : selectedScenario?.name === 'late_comeback' ? 'Vellmont City' : 'Kestrel Bay Athletic'}</span></div>
               <span className="fixture-vs">VS</span>
@@ -452,27 +488,32 @@ function App() {
           </div>
           <div className="kickoff-form">
             <label htmlFor="scenario">SCENARIO</label>
-            <select id="scenario" value={scenario} onChange={(event) => setScenario(event.target.value)}>
+            <select id="scenario" value={scenario} onChange={(event) => setScenario(event.target.value)} disabled={judgeMode}>
               {scenarios.map((item) => <option key={item.name} value={item.name}>{item.name.replaceAll('_', ' ')}</option>)}
             </select>
             <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenariosâ€¦'}</p>
             <div className="form-row">
               <div className="seed-field">
                 <label htmlFor="seed">RANDOM SEED</label>
-                <input id="seed" type="number" min="0" value={seed} onChange={(event) => setSeed(Math.max(0, Number(event.target.value)))} />
+                <input id="seed" type="number" min="0" value={seed} onChange={(event) => setSeed(Math.max(0, Number(event.target.value)))} disabled={judgeMode} />
               </div>
               <div className="speed-field">
                 <label htmlFor="kickoff-speed">PLAYBACK SPEED</label>
-                <select id="kickoff-speed" value={speed} onChange={(event) => setSpeed(event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>)}>
+                <select id="kickoff-speed" value={speed} onChange={(event) => setSpeed(event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>)} disabled={judgeMode}>
                   {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}
                 </select>
               </div>
             </div>
-            <button className="kickoff-button" onClick={() => void startMatch()} disabled={busy || scenarios.length === 0}>
+            {judgeMode && <button className="kickoff-button" onClick={() => void startMatch(true)} disabled={busy || profiles.length === 0}>START JUDGE MODE</button>}
+            {!judgeMode && <button className="kickoff-button" onClick={() => void startMatch()} disabled={busy || scenarios.length === 0}>
               <span>{busy ? 'PREPARING FIXTUREâ€¦' : 'KICK OFF MATCH'}</span>
               <span className="button-arrow">â†—</span>
-            </button>
-            <p className="offline-note"><span>â—</span> Runs locally Â· No cloud account required</p>
+            </button>}
+            {!judgeMode && <button className="judge-preset-button" onClick={() => void startMatch(true)} disabled={busy || profiles.length === 0}>START JUDGE MODE PRESET</button>}
+            <p className="offline-note">
+              <span>●</span>
+              {judgeMode ? 'No account required · Live synthetic fixture' : 'Runs locally · No cloud account required'}
+            </p>
           </div>
         </section>
       )}
@@ -486,7 +527,7 @@ function App() {
             </div>
             <div className="score-center">
               <div className="score-numbers"><span>{match.score.home}</span><i>:</i><span>{match.score.away}</span></div>
-              <div className="score-meta"><span className={isLive ? 'live-pill' : 'state-pill'}>{match.status === 'complete' ? 'FULL TIME' : match.status === 'paused' ? 'PAUSED' : match.status === 'starting' ? 'WARMING UP' : 'LIVE'}</span><span>{formatClock(match.clock.period, match.clock.ms)}</span></div>
+              <div className="score-meta"><span className={isLive ? 'live-pill' : 'state-pill'}>{match.status === 'complete' ? 'FULL TIME' : match.status === 'stopped' ? 'SESSION ENDED' : match.status === 'error' ? 'ERROR' : match.status === 'paused' ? 'PAUSED' : match.status === 'starting' ? 'WARMING UP' : 'LIVE'}</span><span>{formatClock(match.clock.period, match.clock.ms)}</span></div>
             </div>
             <div className="score-team away-score-team">
               <span>{match.metadata.away.name}</span>
@@ -766,6 +807,7 @@ function ProfileView({
         paused: 'PAUSADO',
         complete: 'FINALIZADO',
         error: 'ERROR',
+        stopped: 'SESIÓN FINALIZADA',
       }
     : {
         starting: 'STARTING',
@@ -773,6 +815,7 @@ function ProfileView({
         paused: 'PAUSED',
         complete: 'FULL TIME',
         error: 'ERROR',
+        stopped: 'SESSION ENDED',
       }
 
   let summary: string

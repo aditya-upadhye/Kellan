@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from collections import OrderedDict, deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from time import monotonic
@@ -27,6 +28,19 @@ from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 PlaybackSpeed = Literal[1, 10, 30, 60, "max"]
 ControlAction = Literal["pause", "resume", "speed", "llm_mode", "inject_fault"]
+TERMINAL_STATES = frozenset({"complete", "error", "stopped"})
+START_WINDOW_SECONDS = 60 * 60
+MAX_TRACKED_CLIENT_IPS = 10_000
+
+
+class MatchStartRateLimitError(ValueError):
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__("maximum match starts per IP per hour reached")
+        self.retry_after_seconds = retry_after_seconds
+
+
+class MatchCapacityError(ValueError):
+    pass
 
 
 class StartMatchRequest(Contract):
@@ -53,7 +67,7 @@ class MatchSession:
     profiles: tuple[ViewerProfile, ...] = DEFAULT_PROFILES
     llm_mode: LLMMode = LLMMode.MOCK
     fault_inject_requested: bool = False
-    state: Literal["starting", "running", "paused", "complete", "error"] = "starting"
+    state: Literal["starting", "running", "paused", "complete", "error", "stopped"] = "starting"
     clock: dict[str, int] = field(default_factory=lambda: {"period": 1, "ms": 0})
     events: list[BaseEvent] = field(default_factory=list[BaseEvent])
     frames: list[TrackingFrame] = field(default_factory=list[TrackingFrame])
@@ -65,8 +79,11 @@ class MatchSession:
         default_factory=set[asyncio.Queue[StreamEnvelope]]
     )
     resume_gate: asyncio.Event = field(default_factory=asyncio.Event)
+    viewer_changed: asyncio.Event = field(default_factory=asyncio.Event)
+    started_at: float = field(default_factory=monotonic)
     store: MemoryMetricStore = field(default_factory=MemoryMetricStore)
     task: asyncio.Task[None] | None = None
+    idle_task: asyncio.Task[None] | None = None
     error: str | None = None
     workflow: LiveAgentWorkflow | None = None
     cues: list[OverlayCue] = field(default_factory=list[OverlayCue])
@@ -92,6 +109,10 @@ class MatchSession:
         if self.workflow is not None:
             return self.workflow.fault_injection_armed
         return self.fault_inject_requested
+
+    @property
+    def effective_llm_mode(self) -> LLMMode:
+        return self.workflow.client.mode if self.workflow is not None else self.llm_mode
 
     async def publish(self, message: StreamEnvelope) -> None:
         self.publish_nowait(message)
@@ -145,13 +166,16 @@ class MatchManager:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.sessions: dict[str, MatchSession] = {}
+        self._match_starts_by_ip: OrderedDict[str, deque[float]] = OrderedDict()
 
-    async def start(self, request: StartMatchRequest) -> MatchSession:
-        if (
-            sum(session.state not in {"complete", "error"} for session in self.sessions.values())
-            >= self.settings.max_concurrent_matches
-        ):
-            raise ValueError("maximum concurrent matches reached")
+    async def start(self, request: StartMatchRequest, client_ip: str = "unknown") -> MatchSession:
+        if self.settings.judge_mode:
+            request = StartMatchRequest(
+                scenario="late_comeback",
+                seed=1,
+                speed=10,
+                profiles=[profile.profile_id for profile in DEFAULT_PROFILES],
+            )
         profiles = tuple(get_profile(profile_id) for profile_id in request.profiles)
         if any(profile is None for profile in profiles) or len(set(request.profiles)) != len(
             request.profiles
@@ -161,6 +185,12 @@ class MatchManager:
             scenario = load_scenario(request.scenario, self.settings.scenarios_dir)
         except UnknownScenarioError as error:
             raise ValueError(str(error)) from error
+        if (
+            sum(session.state not in TERMINAL_STATES for session in self.sessions.values())
+            >= self.settings.max_concurrent_matches
+        ):
+            raise MatchCapacityError("maximum concurrent matches reached")
+        self._record_match_start(client_ip)
         metadata = build_scenario_metadata(MERIDIAN_LEAGUE, scenario, request.seed)
         match_id = f"{metadata.match_id}-{uuid.uuid4().hex[:8]}"
         metadata = metadata.model_copy(update={"match_id": match_id})
@@ -171,8 +201,60 @@ class MatchManager:
             llm_mode=self.settings.llm_mode,
         )
         self.sessions[match_id] = session
+        session.idle_task = asyncio.create_task(self._stop_when_unwatched(session))
         session.task = asyncio.create_task(self._run(session, scenario.injections))
         return session
+
+    def _record_match_start(self, client_ip: str) -> None:
+        now = monotonic()
+        starts: deque[float] | None = self._match_starts_by_ip.get(client_ip)
+        if starts is None:
+            if len(self._match_starts_by_ip) >= MAX_TRACKED_CLIENT_IPS:
+                self._match_starts_by_ip.popitem(last=False)
+            starts = deque[float]()
+            self._match_starts_by_ip[client_ip] = starts
+        cutoff = now - START_WINDOW_SECONDS
+        while starts and starts[0] <= cutoff:
+            starts.popleft()
+        if len(starts) >= self.settings.max_match_starts_per_ip_per_hour:
+            retry_after = max(1, int(starts[0] + START_WINDOW_SECONDS - now + 0.999))
+            raise MatchStartRateLimitError(retry_after)
+        starts.append(now)
+        self._match_starts_by_ip.move_to_end(client_ip)
+
+    async def _stop_when_unwatched(self, session: MatchSession) -> None:
+        idle_since = session.started_at
+        try:
+            while session.state not in TERMINAL_STATES:
+                session.viewer_changed.clear()
+                if session.subscribers:
+                    await session.viewer_changed.wait()
+                    idle_since = monotonic()
+                    continue
+                remaining = self.settings.match_idle_timeout_seconds - (monotonic() - idle_since)
+                if remaining <= 0:
+                    if session.subscribers or session.viewer_changed.is_set():
+                        idle_since = monotonic()
+                        continue
+                    session.state = "stopped"
+                    session.error = "Match stopped after no viewers were connected"
+                    await session.publish(_status(session))
+                    if session.task is not None and not session.task.done():
+                        session.task.cancel()
+                    return
+                if session.subscribers:
+                    continue
+                changed = False
+                try:
+                    await asyncio.wait_for(session.viewer_changed.wait(), timeout=remaining)
+                except TimeoutError:
+                    changed = False
+                else:
+                    changed = True
+                if changed:
+                    idle_since = monotonic()
+        except asyncio.CancelledError:
+            raise
 
     async def _run(self, session: MatchSession, injections: list[Injection]) -> None:
         try:
@@ -234,6 +316,7 @@ class MatchManager:
         finally:
             if session.workflow is not None:
                 await session.workflow.close()
+            session.viewer_changed.set()
 
     async def _save_snapshots(self, session: MatchSession, snapshots: list[MetricSnapshot]) -> None:
         for snapshot in snapshots:
@@ -278,10 +361,16 @@ class MatchManager:
             raise LookupError(f"match {match_id!r} was not found") from error
 
     async def close(self) -> None:
-        tasks = [session.task for session in self.sessions.values() if session.task]
+        tasks = [
+            task
+            for session in self.sessions.values()
+            for task in (session.task, session.idle_task)
+            if task is not None
+        ]
         for session in self.sessions.values():
-            if session.task and not session.task.done():
-                session.task.cancel()
+            for task in (session.task, session.idle_task):
+                if task is not None and not task.done():
+                    task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
@@ -323,6 +412,7 @@ async def session_stream(
 ) -> AsyncIterator[StreamEnvelope]:
     queue: asyncio.Queue[StreamEnvelope] = asyncio.Queue()
     session.subscribers.add(queue)
+    session.viewer_changed.set()
     history = tuple(session.history)
     latest_metrics = tuple(session.latest_metrics.values())
     active_cues = session.replay_cues()
@@ -344,7 +434,7 @@ async def session_stream(
                 match_id=session.metadata.match_id,
                 data={"snapshots": [item.model_dump(mode="json") for item in latest_metrics]},
             )
-        if session.state in ("complete", "error"):
+        if session.state in TERMINAL_STATES:
             return
         while True:
             message = await queue.get()
@@ -354,7 +444,8 @@ async def session_stream(
                 or message.data.get("profile_id") in profiles
             ):
                 yield message
-            if message.kind == "status" and message.data.get("state") in {"complete", "error"}:
+            if message.kind == "status" and message.data.get("state") in TERMINAL_STATES:
                 return
     finally:
         session.subscribers.discard(queue)
+        session.viewer_changed.set()
