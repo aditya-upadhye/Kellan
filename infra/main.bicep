@@ -3,6 +3,9 @@ targetScope = 'resourceGroup'
 @description('Azure region for the MatchLens resources. Use a region enabled for the subscription and selected Foundry models.')
 param location string = 'westus2'
 
+@description('Azure region for Cosmos DB. Defaults to the main deployment region; override if Cosmos DB capacity is unavailable there.')
+param cosmosLocation string = location
+
 @description('Short environment name used in resource names.')
 @minLength(2)
 @maxLength(8)
@@ -26,6 +29,7 @@ module platform 'modules/platform.bicep' = {
   name: 'matchlens-platform-${suffix}'
   params: {
     location: location
+    cosmosLocation: cosmosLocation
     environmentName: environmentName
     names: names
   }

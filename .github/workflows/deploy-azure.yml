@@ -25,6 +25,7 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_COSMOS_LOCATION: ${{ vars.AZURE_COSMOS_LOCATION || vars.AZURE_LOCATION }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
       - name: Check deployment configuration
@@ -35,6 +36,7 @@ jobs:
           : "${AZURE_SUBSCRIPTION_ID:?Set the AZURE_SUBSCRIPTION_ID repository variable}"
           : "${AZURE_ENV_NAME:?Set the AZURE_ENV_NAME repository variable}"
           : "${AZURE_LOCATION:?Set the AZURE_LOCATION repository variable}"
+          : "${AZURE_COSMOS_LOCATION:?Set AZURE_COSMOS_LOCATION or AZURE_LOCATION}"
           : "${AZURE_RESOURCE_GROUP:?Set the AZURE_RESOURCE_GROUP repository variable}"
           if (( ${#AZURE_ENV_NAME} < 2 || ${#AZURE_ENV_NAME} > 8 )); then
             echo "AZURE_ENV_NAME must be 2 to 8 characters to satisfy the Bicep parameter constraint."
@@ -58,6 +60,7 @@ jobs:
             --subscription "$AZURE_SUBSCRIPTION_ID" \
             --location "$AZURE_LOCATION" \
             --no-prompt
+          azd env set AZURE_COSMOS_LOCATION "$AZURE_COSMOS_LOCATION"
           azd env set AZURE_RESOURCE_GROUP "$AZURE_RESOURCE_GROUP"
 
       - name: Provision and deploy
