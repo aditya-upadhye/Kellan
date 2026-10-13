@@ -2,7 +2,18 @@
 
 All notable changes are recorded here, one section per milestone tag.
 
-## [Unreleased] - M7 workflow integration
+## [Unreleased] - M8 Azure deployment
+
+### Added
+
+- Added Bicep for a Consumption Container Apps environment, API and web apps, a Basic Container Registry, Basic Event Hubs, serverless Cosmos DB, a Foundry project with the fast and strong model deployments, Application Insights and Log Analytics.
+- Added a user-assigned managed identity with scoped Event Hubs data, Cosmos DB data, Foundry inference and registry pull roles. Cloud resources disable local key authentication where supported.
+
+### Verified
+
+- `az bicep build` compiles the root template and platform module. No Azure resources were deployed.
+
+## [m7] - Producer workflow integration
 
 ### Added
 

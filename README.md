@@ -6,7 +6,7 @@ Code computes every number, agents write every sentence, and a Fact-Checker agen
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in MatchLens is fictional: league, clubs, players and venues are invented.
 
-> **Status:** M1–M5 are complete; M6 personalization is in progress on `m6-personalization`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Status:** M1–M7 are complete; M8 Azure deployment is in progress on `m8-azure`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout
 
@@ -14,6 +14,7 @@ Everything in MatchLens is fictional: league, clubs, players and venues are inve
 | --- | --- |
 | `backend/` | Python 3.12 package `matchlens`, managed with uv |
 | `frontend/` | React + Vite + TypeScript web client |
+| `infra/` | Bicep templates for Azure resources |
 | `docs/` | Architecture, changelog, eval results, demo script |
 | `.github/workflows/` | CI: lint, typecheck, tests, build and dependency audit |
 
