@@ -3,6 +3,9 @@ targetScope = 'resourceGroup'
 @description('Azure region for the platform resources.')
 param location string
 
+@description('Azure region for Cosmos DB.')
+param cosmosLocation string
+
 @description('Deployment environment name.')
 param environmentName string
 
@@ -148,7 +151,7 @@ resource eventHubsReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' 
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
   name: names.cosmos
-  location: location
+  location: cosmosLocation
   kind: 'GlobalDocumentDB'
   properties: {
     databaseAccountOfferType: 'Standard'
@@ -164,7 +167,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     }
     locations: [
       {
-        locationName: location
+        locationName: cosmosLocation
         failoverPriority: 0
         isZoneRedundant: false
       }
