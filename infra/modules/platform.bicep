@@ -239,6 +239,9 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
   parent: foundry
   name: names.project
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     displayName: 'MatchLens ${environmentName}'
     description: 'Foundry project for MatchLens match insights.'
@@ -336,7 +339,9 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'api'
-          image: '${registry.properties.loginServer}/api:latest'
+          // Bootstrap image lets the Container App be created before azd remoteBuild
+          // has pushed the application image to ACR. azd deploy replaces it afterward.
+          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           env: [
             { name: 'LLM_MODE', value: 'foundry' }
             { name: 'TRANSPORT', value: 'eventhubs' }
@@ -414,7 +419,9 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: 'web'
-          image: '${registry.properties.loginServer}/web:latest'
+          // Bootstrap image lets the Container App be created before azd remoteBuild
+          // has pushed the application image to ACR. azd deploy replaces it afterward.
+          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
