@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
+from ipaddress import ip_address
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
 from matchlens.api.matches import (
+    MatchCapacityError,
     MatchControlRequest,
     MatchManager,
     MatchSession,
+    MatchStartRateLimitError,
     StartMatchRequest,
     session_stream,
 )
@@ -35,15 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/api/scenarios")
-    async def scenarios() -> list[dict[str, str]]:
-        return [
-            {
-                "name": name,
-                "description": load_scenario(name, manager.settings.scenarios_dir).description,
-            }
-            for name in scenario_names(manager.settings.scenarios_dir)
-        ]
+    _register_config_routes(app, manager)
 
     @app.get("/api/profiles", response_model=list[ViewerProfile])
     async def profiles() -> list[ViewerProfile]:
@@ -51,13 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     _register_profile_route(app)
 
-    @app.post("/api/matches", status_code=202)
-    async def start_match(request: StartMatchRequest) -> dict[str, str]:
-        try:
-            session = await manager.start(request)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
-        return {"match_id": session.metadata.match_id, "status": session.state}
+    _register_start_match_route(app, manager)
 
     @app.get("/api/matches/{match_id}")
     async def get_match(match_id: str) -> dict[str, Any]:
@@ -70,7 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "speed": session.speed,
             "error": session.error,
             "profiles": [profile.profile_id for profile in session.profiles],
-            "llm_mode": session.llm_mode,
+            "llm_mode": session.effective_llm_mode,
             "fault_inject_next": session.fault_inject_next,
         }
 
@@ -108,7 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "match_id": match_id,
             "status": session.state,
             "speed": session.speed,
-            "llm_mode": session.llm_mode,
+            "llm_mode": session.effective_llm_mode,
             "fault_inject_next": session.fault_inject_next,
         }
 
@@ -156,11 +145,60 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
+def _register_config_routes(app: FastAPI, manager: MatchManager) -> None:
+    @app.get("/api/config")
+    async def public_config() -> dict[str, bool]:
+        return {"judge_mode": manager.settings.judge_mode}
+
+    @app.get("/api/scenarios")
+    async def scenarios() -> list[dict[str, str]]:
+        return [
+            {
+                "name": name,
+                "description": load_scenario(name, manager.settings.scenarios_dir).description,
+            }
+            for name in scenario_names(manager.settings.scenarios_dir)
+        ]
+
+
+def _register_start_match_route(app: FastAPI, manager: MatchManager) -> None:
+    @app.post("/api/matches", status_code=202)
+    async def start_match(request: StartMatchRequest, http_request: Request) -> dict[str, str]:
+        try:
+            session = await manager.start(request, _client_ip(http_request, manager.settings))
+        except MatchStartRateLimitError as error:
+            raise HTTPException(
+                status_code=429,
+                detail=str(error),
+                headers={"Retry-After": str(error.retry_after_seconds)},
+            ) from error
+        except MatchCapacityError as error:
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        return {"match_id": session.metadata.match_id, "status": session.state}
+
+
 def _get_session(manager: MatchManager, match_id: str):
     try:
         return manager.get(match_id)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+def _client_ip(request: Request, settings: Settings) -> str:
+    candidates = (
+        request.headers.get("x-matchlens-client-ip") if settings.trust_proxy_client_ip else None,
+        request.client.host if request.client is not None else None,
+    )
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        try:
+            return str(ip_address(candidate.strip()))
+        except ValueError:
+            continue
+    return "unknown"
 
 
 def _recaps_for_session(

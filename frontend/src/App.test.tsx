@@ -99,6 +99,46 @@ describe('App', () => {
     )
   })
 
+  it('starts the fixed Judge preset when the deployment enables Judge mode', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path === '/api/config') return jsonResponse({ judge_mode: true })
+      if (path === '/api/profiles') return jsonResponse(profiles)
+      if (path === '/api/scenarios') {
+        return jsonResponse([{ name: 'late_comeback', description: 'A late comeback.' }])
+      }
+      if (path === '/api/matches' && init?.method === 'POST') {
+        return {
+          ok: false,
+          json: async () => ({ detail: 'test complete' }),
+        } as Response
+      }
+      return jsonResponse({})
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Judge mode' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'START JUDGE MODE' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: /KICK OFF MATCH/ })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'START JUDGE MODE' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/matches',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            scenario: 'late_comeback',
+            seed: 1,
+            speed: 10,
+            profiles: profiles.map((profile) => profile.profile_id),
+          }),
+        }),
+      ),
+    )
+  })
+
   it('keeps two selected profile views synchronized to the same live match', async () => {
     const sockets: Array<{
       onmessage: ((message: MessageEvent<string>) => void) | null

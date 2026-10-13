@@ -50,9 +50,13 @@ class Settings(BaseSettings):
 
     fault_inject_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     factcheck_qualitative: bool = False
+    judge_mode: bool = False
 
     max_concurrent_matches: int = Field(default=2, ge=1)
     max_llm_calls_per_match: int = Field(default=400, ge=0)
+    max_match_starts_per_ip_per_hour: int = Field(default=3, ge=1)
+    match_idle_timeout_seconds: float = Field(default=900.0, gt=0)
+    trust_proxy_client_ip: bool = False
 
     data_dir: Path = REPO_ROOT / "data"
 

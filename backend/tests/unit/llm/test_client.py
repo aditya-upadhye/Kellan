@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
+import matchlens.llm.client as llm_client_module
 from matchlens.config import LLMMode, Settings
 from matchlens.llm.client import (
     FoundryLLMClient,
@@ -117,6 +118,41 @@ def test_mock_mode_requires_a_matching_fixture() -> None:
 
     assert len(traces) == 1
     assert traces[0].status == "error"
+
+
+def test_foundry_client_uses_default_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    credential = object()
+    captured: dict[str, Any] = {}
+
+    class FakeFoundryChatClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+    fake_identity = type(
+        "FakeIdentity",
+        (),
+        {"DefaultAzureCredential": staticmethod(lambda: credential)},
+    )
+
+    modules = {
+        "agent_framework.foundry": type(
+            "FakeFoundryModule", (), {"FoundryChatClient": FakeFoundryChatClient}
+        ),
+        "azure.identity.aio": fake_identity,
+        "agent_framework": type("FakeFrameworkModule", (), {"Message": object}),
+    }
+    monkeypatch.setattr(llm_client_module.importlib, "import_module", modules.__getitem__)
+
+    FoundryLLMClient(
+        Settings(
+            llm_mode=LLMMode.FOUNDRY,
+            foundry_project_endpoint="https://foundry.example/api/projects/matchlens",
+            fast_model="fast",
+            strong_model="strong",
+        )
+    )
+
+    assert captured["credential"] is credential
 
 
 @pytest.mark.parametrize("fail_once", [False, True])

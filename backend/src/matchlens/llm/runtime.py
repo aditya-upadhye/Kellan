@@ -1,10 +1,12 @@
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any, override
 
 from matchlens.config import LLMMode, Settings
-from matchlens.llm.client import LLMClient, LLMDisabledError, create_llm_client
+from matchlens.llm.client import LLMClient, create_llm_client
 from matchlens.llm.fixtures import live_responses
 from matchlens.models.traces import AgentName, AgentTrace
+from matchlens.obs.telemetry import current_trace_id
 
 
 class RuntimeLLMClient(LLMClient):
@@ -33,7 +35,26 @@ class RuntimeLLMClient(LLMClient):
         moment_id: str | None = None,
     ) -> dict[str, Any]:
         if self.calls >= self._settings.max_llm_calls_per_match and self.mode is not LLMMode.OFF:
-            raise LLMDisabledError("per-match LLM call budget exhausted")
+            previous_mode = self.mode
+            self.mode = LLMMode.OFF
+            self._record_trace(
+                AgentTrace(
+                    trace_id=current_trace_id(),
+                    match_id=match_id,
+                    moment_id=moment_id,
+                    agent=agent,
+                    action="cost_guard",
+                    status="fallback",
+                    latency_ms=0,
+                    tokens_in=0,
+                    tokens_out=0,
+                    detail=(
+                        f"MAX_LLM_CALLS_PER_MATCH={self._settings.max_llm_calls_per_match}; "
+                        f"switched {previous_mode} to off"
+                    ),
+                    ts=datetime.now(UTC),
+                )
+            )
         if self.mode not in self._clients:
             configured = self._settings.model_copy(update={"llm_mode": self.mode})
             self._clients[self.mode] = create_llm_client(

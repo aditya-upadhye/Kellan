@@ -100,11 +100,14 @@ def test_switching_llm_off_and_call_budget_preserve_verified_fallbacks() -> None
         assert first.insight.status == "verified"
         assert all(cue.data["status"] == "fallback" for cue in first.cues)
         assert client.calls == 1
-        client.set_mode(LLMMode.OFF)
         second = (await insight_workflow(services).run(await goal_work())).get_outputs()[0]
         assert isinstance(second, MomentResult)
         assert second.insight.status == "fallback"
         assert len(second.cues) == 4
         assert client.calls == 1
+        assert client.mode is LLMMode.OFF
+        guard = next(trace for trace in traces if trace.action == "cost_guard")
+        assert guard.status == "fallback"
+        assert "MAX_LLM_CALLS_PER_MATCH=1" in guard.detail
 
     asyncio.run(run())

@@ -2,6 +2,24 @@
 
 Challenges hit while building MatchLens: what happened, what it cost, and how it was handled. Newest first.
 
+## F-020 · 2026-10-12 · Restricted Windows validation environment
+
+**The local tool session could not download Azure CLI's Bicep binary**
+
+- **What happened:** `az` was not on the noninteractive shell's `PATH`; calling the installed `az.cmd` directly then required a temporary `AZURE_CONFIG_DIR` because the default Azure profile was not writable. The CLI next failed to download Bicep from `aka.ms` because network access was denied. PowerShell also blocked the `npm.ps1` shim, so frontend checks used `npm.cmd`.
+- **Impact:** Bicep compilation could not be re-run in this session. Frontend tests and build ran successfully through `npm.cmd`.
+- **Resolution:** No Bicep binary was available locally to use offline. Retry the Bicep build in the developer shell or CI, where the existing CLI setup has network access.
+- **Status:** Bicep validation pending in a network-enabled environment
+
+## F-019 · 2026-10-12 · Pytest temporary directory permissions
+
+**Windows denied temporary-directory access during the first full test run**
+
+- **What happened:** Pytest reported 21 `tmp_path` setup errors while scanning `C:\Users\Aditya\AppData\Local\Temp\pytest-of-Aditya`.
+- **Impact:** The first full-suite run could not complete reliably.
+- **Resolution:** Re-ran the same command; all 447 tests passed and the permission failure did not reproduce.
+- **Status:** Resolved
+
 ## F-018 · 2026-10-11 · Foundry data-plane role
 
 **A CLI-created Foundry resource did not grant the signed-in user Foundry User access**
