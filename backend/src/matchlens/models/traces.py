@@ -19,4 +19,5 @@ class AgentTrace(Contract):
     tokens_in: int = Field(ge=0)
     tokens_out: int = Field(ge=0)
     detail: str = Field(max_length=200)
+    draft_text: str | None = Field(default=None, max_length=600)
     ts: AwareDatetime

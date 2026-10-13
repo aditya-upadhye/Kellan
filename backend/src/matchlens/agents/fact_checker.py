@@ -112,7 +112,7 @@ class FactCheckerAgent:
                 return draft.model_copy(update={"status": "verified"})
 
             codes = ",".join(error.code for error in errors)
-            self._record(moment, "verify", "rejected", f"attempt={attempt}; {codes}", started)
+            self._record_rejection(moment, draft, f"attempt={attempt}; {codes}", started)
             previous_draft = draft
             if attempt < 3:
                 self._record(moment, "revise", "retry", f"attempt={attempt + 1}; {codes}")
@@ -196,6 +196,28 @@ class FactCheckerAgent:
                 tokens_in=0,
                 tokens_out=0,
                 detail=detail[:200],
+                ts=datetime.now(UTC),
+            )
+        )
+
+    def _record_rejection(
+        self, moment: Moment, draft: Insight, detail: str, started: float
+    ) -> None:
+        if self._record_trace is None:
+            return
+        self._record_trace(
+            AgentTrace(
+                trace_id=current_trace_id(),
+                match_id=moment.match_id,
+                moment_id=moment.moment_id,
+                agent="fact_checker",
+                action="verify",
+                status="rejected",
+                latency_ms=round((time.perf_counter() - started) * 1000),
+                tokens_in=0,
+                tokens_out=0,
+                detail=detail[:200],
+                draft_text=f"{draft.headline}\n{draft.body}"[:600],
                 ts=datetime.now(UTC),
             )
         )

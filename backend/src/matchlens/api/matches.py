@@ -2,42 +2,57 @@ import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from time import monotonic
 from typing import Literal, cast
 
-from pydantic import Field
+from pydantic import Field, StrictBool
 
-from matchlens.config import Settings
+from matchlens.agents.live import LiveAgentWorkflow
+from matchlens.config import LLMMode, Settings
 from matchlens.metrics.engine import MetricsEngine
 from matchlens.models.base import Contract, TeamSide
+from matchlens.models.cues import OverlayCue, Recap
 from matchlens.models.envelope import StreamEnvelope
 from matchlens.models.events import BaseEvent, GoalEvent, MatchEvent
 from matchlens.models.match import MatchMetadata
 from matchlens.models.metrics import MetricSnapshot
+from matchlens.models.profiles import ViewerProfile
+from matchlens.models.traces import AgentTrace
 from matchlens.models.tracking import TrackingFrame
+from matchlens.profiles import DEFAULT_PROFILES, get_profile
 from matchlens.sim.match import SimulatedMatch, build_scenario_metadata, simulate_match
 from matchlens.sim.scenarios import Injection, UnknownScenarioError, load_scenario
 from matchlens.store.memory import MemoryMetricStore
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 PlaybackSpeed = Literal[1, 10, 30, 60, "max"]
-ControlAction = Literal["pause", "resume", "speed"]
+ControlAction = Literal["pause", "resume", "speed", "llm_mode", "inject_fault"]
 
 
 class StartMatchRequest(Contract):
     scenario: str = "balanced"
     seed: int = Field(default=42, ge=0)
     speed: PlaybackSpeed = 10
+    profiles: list[str] = Field(
+        default_factory=lambda: [profile.profile_id for profile in DEFAULT_PROFILES],
+        min_length=1,
+        max_length=len(DEFAULT_PROFILES),
+    )
 
 
 class MatchControlRequest(Contract):
     action: ControlAction
-    value: PlaybackSpeed | None = None
+    value: PlaybackSpeed | LLMMode | None = None
+    enabled: StrictBool | None = None
 
 
 @dataclass(slots=True)
 class MatchSession:
     metadata: MatchMetadata
     speed: PlaybackSpeed
+    profiles: tuple[ViewerProfile, ...] = DEFAULT_PROFILES
+    llm_mode: LLMMode = LLMMode.MOCK
+    fault_inject_requested: bool = False
     state: Literal["starting", "running", "paused", "complete", "error"] = "starting"
     clock: dict[str, int] = field(default_factory=lambda: {"period": 1, "ms": 0})
     events: list[BaseEvent] = field(default_factory=list[BaseEvent])
@@ -53,6 +68,13 @@ class MatchSession:
     store: MemoryMetricStore = field(default_factory=MemoryMetricStore)
     task: asyncio.Task[None] | None = None
     error: str | None = None
+    workflow: LiveAgentWorkflow | None = None
+    cues: list[OverlayCue] = field(default_factory=list[OverlayCue])
+    recaps: dict[tuple[str, str], Recap] = field(default_factory=dict[tuple[str, str], Recap])
+    traces: list[AgentTrace] = field(default_factory=list[AgentTrace])
+    active_cues: dict[str, tuple[OverlayCue, int]] = field(
+        default_factory=dict[str, tuple[OverlayCue, int]]
+    )
 
     def __post_init__(self) -> None:
         self.resume_gate.set()
@@ -65,11 +87,58 @@ class MatchSession:
                 goals[event.team_id] += 1
         return goals
 
+    @property
+    def fault_inject_next(self) -> bool:
+        if self.workflow is not None:
+            return self.workflow.fault_injection_armed
+        return self.fault_inject_requested
+
     async def publish(self, message: StreamEnvelope) -> None:
-        if message.kind in ("event", "frame"):
+        self.publish_nowait(message)
+
+    def publish_nowait(self, message: StreamEnvelope) -> None:
+        if message.kind in ("event", "frame", "trace", "recap"):
             self.history.append(message)
+        if message.kind == "trace":
+            self.traces.append(AgentTrace.model_validate(message.data))
+        elif message.kind == "cue":
+            if message.data.get("action") == "show":
+                cue = OverlayCue.model_validate(
+                    {key: value for key, value in message.data.items() if key != "action"}
+                )
+                self.cues.append(cue)
+                self.active_cues[cue.cue_id] = (cue, int(monotonic() * 1000))
+            elif message.data.get("action") == "remove":
+                self.active_cues.pop(str(message.data["cue_id"]), None)
+        elif message.kind == "recap":
+            recap = Recap.model_validate(message.data)
+            self.recaps[recap.profile_id, recap.kind] = recap
         for queue in tuple(self.subscribers):
-            await queue.put(message)
+            queue.put_nowait(message)
+
+    def replay_cues(self) -> list[StreamEnvelope]:
+        messages: list[StreamEnvelope] = []
+        now_ms = int(monotonic() * 1000)
+        for cue_id, (cue, sent_at) in tuple(self.active_cues.items()):
+            elapsed = now_ms - sent_at
+            remaining = cue.start_delay_ms + cue.duration_ms - elapsed
+            if remaining <= 0:
+                self.active_cues.pop(cue_id)
+                continue
+            restored = cue.model_copy(
+                update={
+                    "start_delay_ms": max(0, cue.start_delay_ms - elapsed),
+                    "duration_ms": min(cue.duration_ms, remaining),
+                }
+            )
+            messages.append(
+                StreamEnvelope(
+                    kind="cue",
+                    match_id=self.metadata.match_id,
+                    data={**restored.model_dump(mode="json"), "action": "show"},
+                )
+            )
+        return messages
 
 
 class MatchManager:
@@ -78,6 +147,16 @@ class MatchManager:
         self.sessions: dict[str, MatchSession] = {}
 
     async def start(self, request: StartMatchRequest) -> MatchSession:
+        if (
+            sum(session.state not in {"complete", "error"} for session in self.sessions.values())
+            >= self.settings.max_concurrent_matches
+        ):
+            raise ValueError("maximum concurrent matches reached")
+        profiles = tuple(get_profile(profile_id) for profile_id in request.profiles)
+        if any(profile is None for profile in profiles) or len(set(request.profiles)) != len(
+            request.profiles
+        ):
+            raise ValueError("profiles must contain distinct known profile IDs")
         try:
             scenario = load_scenario(request.scenario, self.settings.scenarios_dir)
         except UnknownScenarioError as error:
@@ -85,7 +164,12 @@ class MatchManager:
         metadata = build_scenario_metadata(MERIDIAN_LEAGUE, scenario, request.seed)
         match_id = f"{metadata.match_id}-{uuid.uuid4().hex[:8]}"
         metadata = metadata.model_copy(update={"match_id": match_id})
-        session = MatchSession(metadata=metadata, speed=request.speed)
+        session = MatchSession(
+            metadata=metadata,
+            speed=request.speed,
+            profiles=tuple(profile for profile in profiles if profile is not None),
+            llm_mode=self.settings.llm_mode,
+        )
         self.sessions[match_id] = session
         session.task = asyncio.create_task(self._run(session, scenario.injections))
         return session
@@ -101,6 +185,16 @@ class MatchManager:
             session.state = "running"
             await session.publish(_status(session))
             engine = MetricsEngine(session.metadata.match_id)
+            session.workflow = LiveAgentWorkflow(
+                session.metadata,
+                session.profiles,
+                self.settings.model_copy(update={"llm_mode": session.llm_mode}),
+                session.store,
+                session.publish_nowait,
+            )
+            if session.fault_inject_requested:
+                session.workflow.set_fault_injection(True)
+                session.fault_inject_requested = False
             previous: tuple[int, int] | None = None
             for item in _ordered_inputs(match):
                 await session.resume_gate.wait()
@@ -109,6 +203,7 @@ class MatchManager:
                     delta = (stamp[0] - previous[0]) * 45 * 60_000 + stamp[1] - previous[1]
                     if delta > 0:
                         await asyncio.sleep(delta / (1000 * session.speed))
+                await session.resume_gate.wait()
                 previous = stamp
                 session.clock = {"period": item.clock.period, "ms": item.clock.ms}
                 if isinstance(item, TrackingFrame):
@@ -126,6 +221,8 @@ class MatchManager:
                 await session.publish(message)
                 if snapshots:
                     await self._save_snapshots(session, snapshots)
+                await session.workflow.consume(cast("MatchEvent | TrackingFrame", item), snapshots)
+            await session.workflow.finish()
             session.state = "complete"
             await session.publish(_status(session))
         except asyncio.CancelledError:
@@ -134,6 +231,9 @@ class MatchManager:
             session.state = "error"
             session.error = str(error)
             await session.publish(_status(session))
+        finally:
+            if session.workflow is not None:
+                await session.workflow.close()
 
     async def _save_snapshots(self, session: MatchSession, snapshots: list[MetricSnapshot]) -> None:
         for snapshot in snapshots:
@@ -157,9 +257,18 @@ class MatchManager:
                 session.state = "running"
                 session.resume_gate.set()
         elif request.action == "speed":
-            if request.value is None:
-                raise ValueError("speed control requires a value")
-            session.speed = request.value
+            if request.value not in (1, 10, 30, 60, "max"):
+                raise ValueError("speed control requires a playback speed")
+            session.speed = cast("PlaybackSpeed", request.value)
+        elif request.action == "llm_mode":
+            if not isinstance(request.value, LLMMode):
+                raise ValueError("llm_mode control requires mock, off or foundry")
+            Settings.model_validate({**self.settings.model_dump(), "llm_mode": request.value})
+            session.llm_mode = request.value
+            if session.workflow is not None:
+                session.workflow.client.set_mode(request.value)
+        elif request.action == "inject_fault":
+            _set_fault_injection(session, request.enabled)
         await session.publish(_status(session))
 
     def get(self, match_id: str) -> MatchSession:
@@ -174,6 +283,15 @@ class MatchManager:
             if session.task and not session.task.done():
                 session.task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _set_fault_injection(session: MatchSession, value: object) -> None:
+    if type(value) is not bool:
+        raise ValueError("fault injection control requires a boolean value")
+    if session.workflow is not None:
+        session.workflow.set_fault_injection(value)
+    else:
+        session.fault_inject_requested = value
 
 
 def _ordered_inputs(match: SimulatedMatch) -> list[BaseEvent | TrackingFrame]:
@@ -200,15 +318,26 @@ def _status(session: MatchSession) -> StreamEnvelope:
     )
 
 
-async def session_stream(session: MatchSession) -> AsyncIterator[StreamEnvelope]:
+async def session_stream(
+    session: MatchSession, profiles: frozenset[str] | None = None
+) -> AsyncIterator[StreamEnvelope]:
     queue: asyncio.Queue[StreamEnvelope] = asyncio.Queue()
     session.subscribers.add(queue)
     history = tuple(session.history)
     latest_metrics = tuple(session.latest_metrics.values())
+    active_cues = session.replay_cues()
     try:
         yield _status(session)
         for message in history:
-            yield message
+            if (
+                message.kind != "recap"
+                or profiles is None
+                or message.data.get("profile_id") in profiles
+            ):
+                yield message
+        for message in active_cues:
+            if profiles is None or message.data.get("profile_id") in profiles:
+                yield message
         if latest_metrics:
             yield StreamEnvelope(
                 kind="metrics",
@@ -218,6 +347,14 @@ async def session_stream(session: MatchSession) -> AsyncIterator[StreamEnvelope]
         if session.state in ("complete", "error"):
             return
         while True:
-            yield await queue.get()
+            message = await queue.get()
+            if (
+                message.kind not in {"cue", "recap"}
+                or profiles is None
+                or message.data.get("profile_id") in profiles
+            ):
+                yield message
+            if message.kind == "status" and message.data.get("state") in {"complete", "error"}:
+                return
     finally:
         session.subscribers.discard(queue)

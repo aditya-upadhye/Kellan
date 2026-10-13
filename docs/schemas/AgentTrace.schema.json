@@ -64,6 +64,17 @@
       "maxLength": 200,
       "type": "string"
     },
+    "draft_text": {
+      "anyOf": [
+        {
+          "maxLength": 600,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "ts": {
       "format": "date-time",
       "type": "string"
@@ -80,6 +91,7 @@
     "tokens_in",
     "tokens_out",
     "detail",
+    "draft_text",
     "ts"
   ],
   "type": "object"

@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { MatchEvent } from './generated/MatchEvent'
 import type { MatchMetadata } from './generated/MatchMetadata'
 import type { MetricSnapshot } from './generated/MetricSnapshot'
 import type { StreamEnvelope } from './generated/StreamEnvelope'
 import type { TrackingFrame } from './generated/TrackingFrame'
 import type { ViewerProfile } from './generated/ViewerProfile'
+import type { AgentTrace } from './generated/AgentTrace'
+import type { OverlayCue } from './generated/OverlayCue'
+import type { Recap } from './generated/Recap'
 
 type PlaybackSpeed = 1 | 10 | 30 | 60 | 'max'
 type MatchStatus = 'starting' | 'running' | 'paused' | 'complete' | 'error'
+type LiveCue = OverlayCue & { removing?: boolean }
 
 interface Scenario {
   name: string
@@ -21,6 +25,7 @@ interface MatchResponse {
   score: { home: number; away: number }
   speed: PlaybackSpeed
   error: string | null
+  fault_inject_next?: boolean
 }
 
 interface MatchStateResponse {
@@ -40,15 +45,15 @@ const speeds: PlaybackSpeed[] = [1, 10, 30, 60, 'max']
 const spanishEventLabels: Partial<Record<MatchEvent['type'], string>> = {
   kickoff: 'Inicio',
   pass: 'Pase',
-  carry: 'Conducción',
+  carry: 'ConducciÃ³n',
   tackle: 'Entrada',
-  interception: 'Intercepción',
-  pressure: 'Presión',
+  interception: 'IntercepciÃ³n',
+  pressure: 'PresiÃ³n',
   duel: 'Duelo',
   foul: 'Falta',
   substitution: 'Cambio',
-  possession_change: 'Cambio de posesión',
-  ball_out: 'Balón fuera',
+  possession_change: 'Cambio de posesiÃ³n',
+  ball_out: 'BalÃ³n fuera',
   period_end: 'Fin del periodo',
   match_end: 'Fin del partido',
 }
@@ -60,7 +65,7 @@ function formatClock(period: 1 | 2, ms: number): string {
 }
 
 function formatMetric(metric: MetricSnapshot | undefined, digits = 1): string {
-  if (!metric) return '—'
+  if (!metric) return 'â€”'
   const unit = metric.unit === '%' || metric.unit === 'km/h' || metric.unit === 'm' ? metric.unit : ''
   return `${metric.value.toFixed(digits)}${unit}`
 }
@@ -91,6 +96,10 @@ function App() {
   const [frame, setFrame] = useState<TrackingFrame | null>(null)
   const [metrics, setMetrics] = useState<Map<string, MetricSnapshot>>(new Map())
   const [events, setEvents] = useState<MatchEventData[]>([])
+  const [traces, setTraces] = useState<AgentTrace[]>([])
+  const [cues, setCues] = useState<LiveCue[]>([])
+  const [recaps, setRecaps] = useState<Recap[]>([])
+  const [faultArmed, setFaultArmed] = useState(false)
   const [socketState, setSocketState] = useState<'connecting' | 'live' | 'offline'>('offline')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -193,6 +202,31 @@ function App() {
         )
         return
       }
+      if (envelope.kind === 'trace' && isRecord(data)) {
+        const trace = data as unknown as AgentTrace
+        setTraces((current) => [...current.slice(-79), trace])
+        if (trace.action === 'fault_injection') setFaultArmed(false)
+        return
+      }
+      if (envelope.kind === 'cue' && isRecord(data)) {
+        const cueId = typeof data.cue_id === 'string' ? data.cue_id : null
+        if (!cueId) return
+        if (data.action === 'remove') {
+          setCues((current) => current.map((cue) => cue.cue_id === cueId ? { ...cue, removing: true } : cue))
+        } else if (data.action === 'show') {
+          const cue = data as unknown as LiveCue
+          setCues((current) => [...current.filter((item) => item.cue_id !== cueId), { ...cue, removing: false }])
+        }
+        return
+      }
+      if (envelope.kind === 'recap' && isRecord(data)) {
+        const recap = data as unknown as Recap
+        setRecaps((current) => [
+          ...current.filter((item) => item.profile_id !== recap.profile_id || item.kind !== recap.kind),
+          recap,
+        ])
+        return
+      }
       if (envelope.kind === 'event' && isRecord(data)) {
         const event = data as unknown as MatchEventData
         setEvents((current) => [...current.slice(-7), event])
@@ -226,6 +260,16 @@ function App() {
   const timeline = useMemo(() => events.slice(-5).reverse(), [events])
   const primaryProfile = profiles.find((profile) => profile.profile_id === primaryProfileId)
   const secondaryProfile = profiles.find((profile) => profile.profile_id === secondaryProfileId)
+  const pitchCues = cues.filter((cue) => cue.slot !== 'side_panel')
+  const sidePanelCues = cues.filter((cue) => cue.slot === 'side_panel')
+  const visibleRecaps = recaps.filter((recap) => recap.profile_id === primaryProfileId)
+
+  const removeCue = useCallback((cueId: string) => {
+    setCues((current) => current.filter((cue) => cue.cue_id !== cueId))
+  }, [])
+  const beginCueRemoval = useCallback((cueId: string) => {
+    setCues((current) => current.map((cue) => cue.cue_id === cueId ? { ...cue, removing: true } : cue))
+  }, [])
 
   function changePrimaryProfile(profileId: string) {
     setPrimaryProfileId(profileId)
@@ -244,6 +288,10 @@ function App() {
     setMatch(null)
     setFrame(null)
     setEvents([])
+    setTraces([])
+    setCues([])
+    setRecaps([])
+    setFaultArmed(false)
     setMetrics(new Map())
     try {
       const response = await fetch('/api/matches', {
@@ -262,6 +310,7 @@ function App() {
       const matchResult = (await matchResponse.json()) as MatchResponse
       const stateResult = (await stateResponse.json()) as MatchStateResponse
       setMatch(matchResult)
+      setFaultArmed(matchResult.fault_inject_next ?? false)
       setSpeed(matchResult.speed)
       setMetrics(
         new Map(stateResult.metrics.map((item) => [`${item.metric_id}:${item.window}`, item])),
@@ -275,18 +324,24 @@ function App() {
     }
   }
 
-  async function control(action: 'pause' | 'resume' | 'speed', value?: PlaybackSpeed) {
+  async function control(
+    action: 'pause' | 'resume' | 'speed' | 'inject_fault',
+    value?: PlaybackSpeed | boolean,
+  ) {
     if (!matchId) return
     setError(null)
     try {
       const response = await fetch(`/api/matches/${matchId}/control`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...(value === undefined ? {} : { value }) }),
+        body: JSON.stringify(
+          action === 'inject_fault' ? { action, enabled: value } : { action, ...(value === undefined ? {} : { value }) },
+        ),
       })
       const result = (await response.json()) as {
         status?: MatchStatus
         speed?: PlaybackSpeed
+        fault_inject_next?: boolean
         detail?: string
       }
       if (!response.ok) throw new Error(result.detail ?? 'Could not update match controls')
@@ -300,6 +355,9 @@ function App() {
           : current,
       )
       if (result.speed) setSpeed(result.speed)
+      if (typeof result.fault_inject_next === 'boolean') {
+        setFaultArmed(result.fault_inject_next)
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Control request failed')
     }
@@ -315,7 +373,7 @@ function App() {
           <span>match<span className="brand-accent">lens</span></span>
         </a>
         <div className="topbar-meta">
-          <span className="season-label">MERIDIAN LEAGUE · LIVE SIMULATION</span>
+          <span className="season-label">MERIDIAN LEAGUE Â· LIVE SIMULATION</span>
           <span className={`connection-state ${socketState}`}>
             <span className="connection-dot" />
             {socketState === 'live' ? 'CONNECTED' : socketState === 'connecting' ? 'CONNECTING' : 'LOCAL MODE'}
@@ -397,7 +455,7 @@ function App() {
             <select id="scenario" value={scenario} onChange={(event) => setScenario(event.target.value)}>
               {scenarios.map((item) => <option key={item.name} value={item.name}>{item.name.replaceAll('_', ' ')}</option>)}
             </select>
-            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenarios…'}</p>
+            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenariosâ€¦'}</p>
             <div className="form-row">
               <div className="seed-field">
                 <label htmlFor="seed">RANDOM SEED</label>
@@ -406,15 +464,15 @@ function App() {
               <div className="speed-field">
                 <label htmlFor="kickoff-speed">PLAYBACK SPEED</label>
                 <select id="kickoff-speed" value={speed} onChange={(event) => setSpeed(event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>)}>
-                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}
+                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}
                 </select>
               </div>
             </div>
             <button className="kickoff-button" onClick={() => void startMatch()} disabled={busy || scenarios.length === 0}>
-              <span>{busy ? 'PREPARING FIXTURE…' : 'KICK OFF MATCH'}</span>
-              <span className="button-arrow">↗</span>
+              <span>{busy ? 'PREPARING FIXTUREâ€¦' : 'KICK OFF MATCH'}</span>
+              <span className="button-arrow">â†—</span>
             </button>
-            <p className="offline-note"><span>●</span> Runs locally · No cloud account required</p>
+            <p className="offline-note"><span>â—</span> Runs locally Â· No cloud account required</p>
           </div>
         </section>
       )}
@@ -434,7 +492,7 @@ function App() {
               <span>{match.metadata.away.name}</span>
               <span className="team-crest crest-away" style={{ background: match.metadata.away.colors.primary, color: match.metadata.away.colors.secondary }}>{match.metadata.away.short_name}</span>
             </div>
-            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>—</i><strong>{formatMetric(awayXg, 2)}</strong></div>
+            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>â€”</i><strong>{formatMetric(awayXg, 2)}</strong></div>
           </section>
 
           <section
@@ -463,7 +521,7 @@ function App() {
             <div className="live-main">
               <div className="pitch-panel">
                 <div className="panel-heading">
-                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">·</span> PERIOD {match.clock.period}</div>
+                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">Â·</span> PERIOD {match.clock.period}</div>
                   <span className="frame-label">{frame ? `FRAME ${frame.frame_seq.toString().padStart(4, '0')}` : 'AWAITING TRACKING'}</span>
                 </div>
                 <div className="pitch-wrap">
@@ -496,8 +554,13 @@ function App() {
                     {frame && <g className="ball-marker" transform={`translate(${frame.ball.x} ${frame.ball.y})`}><circle r="1.25" /><circle r="2.4" className="ball-pulse" /></g>}
                   </svg>
                   {!frame && <div className="pitch-loading"><span className="loading-ring" />{match.status === 'starting' ? 'Generating match data' : 'Waiting for first tracking frame'}</div>}
+                  <div className="broadcast-overlay-layer" aria-live="polite">
+                    {pitchCues.map((cue) => (
+                      <CueOverlay key={cue.cue_id} cue={cue} active={cue.profile_id === primaryProfileId} onExpire={beginCueRemoval} onExitComplete={removeCue} />
+                    ))}
+                  </div>
                 </div>
-                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : '—'}</b></span></div>
+                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : 'â€”'}</b></span></div>
               </div>
 
               <div className="metrics-panel">
@@ -513,35 +576,168 @@ function App() {
 
             <aside className="match-sidebar">
               <div className="control-panel">
-                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">● {match.status.toUpperCase()}</span></div>
+                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">â— {match.status.toUpperCase()}</span></div>
                 <div className="control-buttons">
                   <button className="play-control" onClick={() => void control(match.status === 'paused' ? 'resume' : 'pause')} disabled={match.status === 'complete' || match.status === 'starting'} aria-label={match.status === 'paused' ? 'Resume match' : 'Pause match'}>
-                    {match.status === 'paused' ? <span className="play-icon">▶</span> : <span className="pause-icon"><i /><i /></span>}
+                    {match.status === 'paused' ? <span className="play-icon">â–¶</span> : <span className="pause-icon"><i /><i /></span>}
                     {match.status === 'paused' ? 'RESUME' : 'PAUSE'}
                   </button>
-                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}</select></label>
+                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}</select></label>
                 </div>
-                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>＋ NEW MATCH</button>
+                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>ï¼‹ NEW MATCH</button>
               </div>
+
+              {sidePanelCues.map((cue) => (
+                <CueOverlay key={cue.cue_id} cue={cue} active={cue.profile_id === primaryProfileId} onExpire={beginCueRemoval} onExitComplete={removeCue} />
+              ))}
 
               <div className="timeline-panel">
                 <div className="panel-heading"><span>MATCH FEED</span><span className="feed-count">{events.length.toString().padStart(2, '0')}</span></div>
-                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">⌁</span><p>Match events will appear here as the game unfolds.</p></div>}
+                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">âŒ</span><p>Match events will appear here as the game unfolds.</p></div>}
               </div>
-              <div className="sidebar-footnote"><span>ⓘ</span> Every event and metric is generated from the match simulation.</div>
+              <section className="agent-panel" aria-label="Agent activity">
+                <div className="panel-heading">
+                  <span>AGENT ACTIVITY</span>
+                  <span className="feed-count">{traces.length.toString().padStart(2, '0')}</span>
+                </div>
+                <div className="fault-control">
+                  <div>
+                    <strong>Inject a wrong stat</strong>
+                    <span>Arm fault injection for the next moment.</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={faultArmed ? 'fault-toggle armed' : 'fault-toggle'}
+                    aria-pressed={faultArmed}
+                    disabled={!isLive}
+                    onClick={() => void control('inject_fault', !faultArmed)}
+                  >
+                    {faultArmed ? 'CANCEL' : 'ARM'}
+                  </button>
+                </div>
+                <div className="agent-trace-list" aria-live="polite">
+                  {traces.length ? traces.slice(-10).reverse().map((trace, index) => (
+                    <TraceRow key={`${trace.trace_id}-${index}`} trace={trace} />
+                  )) : <p className="trace-empty">Agent decisions will appear here.</p>}
+                </div>
+              </section>
+              <RecapPanel recaps={visibleRecaps} profileLabel={primaryProfile?.label ?? 'Viewer'} />
+              <div className="sidebar-footnote"><span>â“˜</span> Every event and metric is generated from the match simulation.</div>
             </aside>
           </section>
         </>
       )}
 
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">×</button></div>}
-      <footer className="app-footer"><span>MATCHLENS <i>·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>·</i> BUILT FOR THE GAME</span></footer>
+      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">Ã—</button></div>}
+      <footer className="app-footer"><span>MATCHLENS <i>Â·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>Â·</i> BUILT FOR THE GAME</span></footer>
     </main>
   )
 }
 
+function CueOverlay({ cue, active, onExpire, onExitComplete }: { cue: LiveCue; active: boolean; onExpire: (cueId: string) => void; onExitComplete: (cueId: string) => void }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    let expiry: ReturnType<typeof setTimeout>
+    const show = setTimeout(() => {
+      setVisible(true)
+      expiry = setTimeout(() => onExpire(cue.cue_id), cue.duration_ms)
+    }, cue.start_delay_ms)
+    return () => {
+      clearTimeout(show)
+      clearTimeout(expiry)
+    }
+  }, [cue.cue_id, cue.duration_ms, cue.start_delay_ms, onExpire])
+
+  useEffect(() => {
+    if (!cue.removing) return
+    const exit = setTimeout(() => onExitComplete(cue.cue_id), 180)
+    return () => clearTimeout(exit)
+  }, [cue.cue_id, cue.removing, onExitComplete])
+
+  if (!active || (!visible && !cue.removing)) return null
+  const fallback = cue.data.status === 'fallback'
+  return (
+    <article className={`broadcast-cue cue-${cue.template} slot-${cue.slot}${cue.removing ? ' exiting' : ''}`} aria-label={`${cue.template.replaceAll('_', ' ')} overlay`}>
+      <div className="broadcast-cue-meta">
+        <span>{cue.template.replaceAll('_', ' ')}</span>
+        <span className={fallback ? 'cue-status fallback' : 'cue-status'}>{fallback ? 'FALLBACK' : 'VERIFIED'}</span>
+      </div>
+      <strong>{cue.headline}</strong>
+      <p>{cue.body}</p>
+      {cue.provenance.metric_ids.length > 0 && (
+        <small>VERIFIED FROM {cue.provenance.metric_ids.join(' · ')}</small>
+      )}
+    </article>
+  )
+}
+
+function RecapPanel({ recaps, profileLabel }: { recaps: Recap[]; profileLabel: string }) {
+  return (
+    <section className="recap-panel" aria-label={`${profileLabel} match recap`}>
+      <div className="panel-heading">
+        <span>MATCH RECAP</span>
+        <span className="feed-count">{recaps.length.toString().padStart(2, '0')}</span>
+      </div>
+      {recaps.length === 0 ? (
+        <p className="recap-empty">Half-time and full-time recaps will appear here.</p>
+      ) : (
+        <div className="recap-list">
+          {(['half', 'full'] as const).map((kind) => {
+            const recap = recaps.find((item) => item.kind === kind)
+            if (!recap) return null
+            return (
+              <article className="recap-card" key={`${recap.profile_id}-${recap.kind}`}>
+                <div className="recap-card-heading">
+                  <h3>{recap.title}</h3>
+                  <span className={recap.status === 'verified' ? 'recap-status' : 'recap-status fallback'}>
+                    {recap.status.toUpperCase()}
+                  </span>
+                </div>
+                {recap.paragraphs.map((paragraph, index) => <p key={`${index}-${paragraph}`}>{paragraph}</p>)}
+                {recap.claims.length > 0 && (
+                  <details className="recap-evidence">
+                    <summary>{recap.claims.length} verified claims</summary>
+                    <ul>
+                      {recap.claims.map((claim) => (
+                        <li key={claim.claim_id}>
+                          <span>{claim.text_span}</span>
+                          <code>{claim.metric_id}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {recap.key_moment_ids.length > 0 && (
+                  <small>{recap.key_moment_ids.length} key moments</small>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function TraceRow({ trace }: { trace: AgentTrace }) {
+  const rejected = trace.status === 'rejected'
+  return (
+    <article className={rejected ? 'trace-row rejected' : 'trace-row'}>
+      <div className="trace-row-heading">
+        <span>{trace.agent.replaceAll('_', ' ')}</span>
+        <span>{trace.action.replaceAll('_', ' ')}</span>
+        <strong>{trace.status}</strong>
+      </div>
+      {trace.moment_id && <p className="trace-moment">{trace.moment_id}</p>}
+      <p className="trace-detail">{trace.detail}</p>
+      {rejected && trace.draft_text && <blockquote>{trace.draft_text}</blockquote>}
+    </article>
+  )
+}
+
 function MetricCard({ label, home, away, homeName, awayName }: { label: string; home: string; away: string; homeName: string; awayName: string }) {
-  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>—</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
+  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>â€”</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
 }
 
 function ProfileView({
@@ -581,7 +777,7 @@ function ProfileView({
 
   let summary: string
   if (profile.mode === 'analyst') {
-    summary = `xG ${formatMetric(homeXg, 2)}–${formatMetric(awayXg, 2)} · ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesión' : 'possession'}`
+    summary = `xG ${formatMetric(homeXg, 2)}â€“${formatMetric(awayXg, 2)} Â· ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesiÃ³n' : 'possession'}`
   } else if (profile.mode === 'player_focus') {
     const favoritePlayer = [
       ...match.metadata.home.players,
@@ -593,7 +789,7 @@ function ProfileView({
     const involved = latestEvent?.player_id === profile.favorite_player_id
     summary = involved
       ? spanish
-        ? `${favoritePlayer?.name ?? profile.label} aparece en la acción más reciente.`
+        ? `${favoritePlayer?.name ?? profile.label} aparece en la acciÃ³n mÃ¡s reciente.`
         : `${favoritePlayer?.name ?? profile.label} appears in the latest action.`
       : favoriteEvent
         ? spanish
@@ -643,7 +839,7 @@ function englishEventSummary(
   if (event.type === 'goal') return `A goal for ${team ?? 'the match'} changes the score.`
   if (event.type === 'card') return `A card adds pressure${team ? ` for ${team}` : ''}.`
   if (event.type === 'shot') return `A shot tests the defence${team ? ` of ${team}` : ''}.`
-  return `${event.type.replaceAll('_', ' ')}${team ? ` · ${team}` : ''}.`
+  return `${event.type.replaceAll('_', ' ')}${team ? ` Â· ${team}` : ''}.`
 }
 
 function spanishEventSummary(
@@ -651,12 +847,12 @@ function spanishEventSummary(
   homeName: string,
   awayName: string,
 ): string {
-  if (!event) return 'Esperando la primera acción del partido.'
+  if (!event) return 'Esperando la primera acciÃ³n del partido.'
   const team = event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : null
   if (event.type === 'goal') return `Gol de ${team ?? 'el partido'}; cambia el marcador.`
-  if (event.type === 'card') return `Una tarjeta añade presión${team ? ` a ${team}` : ''}.`
+  if (event.type === 'card') return `Una tarjeta aÃ±ade presiÃ³n${team ? ` a ${team}` : ''}.`
   if (event.type === 'shot') return `Un disparo pone a prueba la defensa${team ? ` de ${team}` : ''}.`
-  return `${spanishEventLabels[event.type] ?? 'Acción'}${team ? ` · ${team}` : ''}.`
+  return `${spanishEventLabels[event.type] ?? 'AcciÃ³n'}${team ? ` Â· ${team}` : ''}.`
 }
 
 function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeName: string; awayName: string }) {
@@ -664,8 +860,8 @@ function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeNa
   const label = event.type.replaceAll('_', ' ').toUpperCase()
   return <article className={`event-row${isGoal ? ' goal-event' : ''}`}>
     <span className="event-time">{formatClock(event.clock.period, event.clock.ms)}</span>
-    <span className="event-symbol">{isGoal ? '⚽' : event.type === 'card' ? '▰' : event.type === 'shot' ? '↗' : '·'}</span>
-    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` · ${event.player_id.toUpperCase()}` : ''}</span></div>
+    <span className="event-symbol">{isGoal ? 'âš½' : event.type === 'card' ? 'â–°' : event.type === 'shot' ? 'â†—' : 'Â·'}</span>
+    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` Â· ${event.player_id.toUpperCase()}` : ''}</span></div>
   </article>
 }
 

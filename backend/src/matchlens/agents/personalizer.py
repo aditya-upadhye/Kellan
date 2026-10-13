@@ -104,8 +104,8 @@ class PersonalizerAgent:
         moment = context.moment
         store = context.store
         subject_names = context.subject_names
-        if insight.status != "verified":
-            raise ValueError("Personalizer requires a verified insight")
+        if insight.status not in {"verified", "fallback"}:
+            raise ValueError("Personalizer requires a verified or checked fallback insight")
         if insight.moment_id != moment.moment_id:
             raise ValueError("insight and moment IDs must match")
         if profile.mode == "player_focus":

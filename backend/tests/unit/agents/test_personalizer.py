@@ -347,5 +347,5 @@ def test_personalizer_requires_verified_source_insight() -> None:
             ),
         )
 
-    with pytest.raises(ValueError, match="requires a verified insight"):
+    with pytest.raises(ValueError, match="requires a verified or checked fallback insight"):
         asyncio.run(run())
