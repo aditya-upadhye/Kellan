@@ -248,6 +248,9 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
 resource fastModel 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   parent: foundry
   name: 'gpt-4.1-mini'
+  dependsOn: [
+    foundryProject
+  ]
   sku: {
     name: 'GlobalStandard'
     capacity: 1
@@ -264,6 +267,9 @@ resource fastModel 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01'
 resource strongModel 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   parent: foundry
   name: 'gpt-4.1'
+  dependsOn: [
+    fastModel
+  ]
   sku: {
     name: 'GlobalStandard'
     capacity: 1
@@ -381,6 +387,12 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
   tags: {
     'azd-env-name': environmentName
     'azd-service-name': 'web'
+  }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
   }
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
