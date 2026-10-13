@@ -300,6 +300,10 @@ resource telemetryPublisher 'Microsoft.Authorization/roleAssignments@2022-04-01'
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'api'
   location: location
+  tags: {
+    'azd-env-name': environmentName
+    'azd-service-name': 'api'
+  }
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {
@@ -370,6 +374,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
 resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'web'
   location: location
+  tags: {
+    'azd-env-name': environmentName
+    'azd-service-name': 'web'
+  }
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
@@ -391,9 +399,6 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'web'
           image: '${registry.properties.loginServer}/web:latest'
-          env: [
-            { name: 'API_UPSTREAM', value: 'api' }
-          ]
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'

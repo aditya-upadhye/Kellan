@@ -1,3 +1,4 @@
+.azure
 .git
 .github
 .venv
@@ -9,4 +10,7 @@
 **/.ruff_cache
 **/*.pyc
 .env
+.env.*
+!.env.example
 data/samples
+*.log

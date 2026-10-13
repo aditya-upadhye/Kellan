@@ -148,14 +148,14 @@ class FoundryLLMClient:
             raise RuntimeError("install the backend 'foundry' extra to use Foundry mode") from error
 
         foundry_client = foundry_module.FoundryChatClient
-        azure_cli_credential = identity_module.AzureCliCredential
+        default_credential = identity_module.DefaultAzureCredential
         message_type = framework_module.Message
         self._client: FoundryChatClient = cast(
             "FoundryChatClient",
             foundry_client(
                 project_endpoint=settings.foundry_project_endpoint,
                 model=settings.fast_model,
-                credential=azure_cli_credential(),
+                credential=default_credential(),
             ),
         )
         self._message_type = message_type

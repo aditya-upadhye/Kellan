@@ -1,0 +1,28 @@
+name: matchlens
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+services:
+  api:
+    project: .
+    language: docker
+    host: containerapp
+    resourceName: api
+    docker:
+      path: ./backend/Dockerfile
+      context: .
+      image: api
+      remoteBuild: true
+  web:
+    project: .
+    language: docker
+    host: containerapp
+    resourceName: web
+    docker:
+      path: ./frontend/Dockerfile
+      context: .
+      image: web
+      remoteBuild: true

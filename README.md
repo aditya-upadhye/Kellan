@@ -15,6 +15,7 @@ Everything in MatchLens is fictional: league, clubs, players and venues are inve
 | `backend/` | Python 3.12 package `matchlens`, managed with uv |
 | `frontend/` | React + Vite + TypeScript web client |
 | `infra/` | Bicep templates for Azure resources |
+| `azure.yaml` | Azure Developer CLI services and Docker build settings |
 | `docs/` | Architecture, changelog, eval results, demo script |
 | `.github/workflows/` | CI: lint, typecheck, tests, build and dependency audit |
 
@@ -24,6 +25,7 @@ Everything in MatchLens is fictional: league, clubs, players and venues are inve
 - Node.js 22 and npm
 - GNU Make
 - [gitleaks](https://github.com/gitleaks/gitleaks) 8.30+ for `make secrets-scan` (the pre-commit hook builds its own)
+- [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) for Azure deployment
 
 No cloud account is needed. By default every component runs locally with a mock LLM.
 

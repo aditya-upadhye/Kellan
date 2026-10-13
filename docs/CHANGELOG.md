@@ -8,10 +8,13 @@ All notable changes are recorded here, one section per milestone tag.
 
 - Added Bicep for a Consumption Container Apps environment, API and web apps, a Basic Container Registry, Basic Event Hubs, serverless Cosmos DB, a Foundry project with the fast and strong model deployments, Application Insights and Log Analytics.
 - Added a user-assigned managed identity with scoped Event Hubs data, Cosmos DB data, Foundry inference and registry pull roles. Cloud resources disable local key authentication where supported.
+- Added `azd` project configuration for building and deploying the API and web images to their tagged Container Apps. The backend production image installs the Azure and Foundry extras and runs as a non-root user.
+- Switched Foundry authentication to `DefaultAzureCredential`, enabling the same client to use local Azure CLI sign-in and the Container App managed identity.
 
 ### Verified
 
 - `az bicep build` compiles the root template and platform module. No Azure resources were deployed.
+- The focused LLM client tests pass (8 tests); Ruff and Pyright pass for the changed backend files.
 
 ## [m7] - Producer workflow integration
 
