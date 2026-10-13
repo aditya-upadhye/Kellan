@@ -16,6 +16,7 @@ Everything in MatchLens is fictional: league, clubs, players and venues are inve
 | `frontend/` | React + Vite + TypeScript web client |
 | `infra/` | Bicep templates for Azure resources |
 | `azure.yaml` | Azure Developer CLI services and Docker build settings |
+| `docs/azure-deployment.md` | GitHub OIDC setup and Azure deployment instructions |
 | `docs/` | Architecture, changelog, eval results, demo script |
 | `.github/workflows/` | CI: lint, typecheck, tests, build and dependency audit |
 

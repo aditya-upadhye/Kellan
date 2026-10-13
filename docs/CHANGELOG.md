@@ -10,11 +10,13 @@ All notable changes are recorded here, one section per milestone tag.
 - Added a user-assigned managed identity with scoped Event Hubs data, Cosmos DB data, Foundry inference and registry pull roles. Cloud resources disable local key authentication where supported.
 - Added `azd` project configuration for building and deploying the API and web images to their tagged Container Apps. The backend production image installs the Azure and Foundry extras and runs as a non-root user.
 - Switched Foundry authentication to `DefaultAzureCredential`, enabling the same client to use local Azure CLI sign-in and the Container App managed identity.
+- Added a manual, main-branch-only GitHub Actions deployment workflow using OIDC and documented Azure/GitHub setup.
 
 ### Verified
 
 - `az bicep build` compiles the root template and platform module. No Azure resources were deployed.
 - The focused LLM client tests pass (8 tests); Ruff and Pyright pass for the changed backend files.
+- The OIDC deployment workflow YAML parses successfully. It was not run against GitHub or Azure.
 
 ## [m7] - Producer workflow integration
 
