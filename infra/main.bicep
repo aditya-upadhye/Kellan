@@ -41,6 +41,7 @@ output identityPrincipalId string = platform.outputs.identityPrincipalId
 output containerAppsEnvironmentId string = platform.outputs.containerAppsEnvironmentId
 output containerRegistryName string = platform.outputs.containerRegistryName
 output containerRegistryLoginServer string = platform.outputs.containerRegistryLoginServer
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = platform.outputs.containerRegistryLoginServer
 output eventHubsNamespace string = platform.outputs.eventHubsNamespace
 output eventHubsFqdn string = platform.outputs.eventHubsFqdn
 output cosmosEndpoint string = platform.outputs.cosmosEndpoint
