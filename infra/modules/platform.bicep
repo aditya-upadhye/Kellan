@@ -73,20 +73,12 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
     name: 'Basic'
   }
   properties: {
-    adminUserEnabled: false
+    adminUserEnabled: true
     publicNetworkAccess: 'Enabled'
   }
 }
 
-resource registryPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.id, identity.id, 'registry-pull')
-  scope: registry
-  properties: {
-    principalId: identity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-  }
-}
+var registryPasswordSecretName = 'acr-pull-password'
 
 resource eventHubs 'Microsoft.EventHub/namespaces@2024-01-01' = {
   name: names.eventHubs
@@ -326,10 +318,17 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: [
+        {
+          name: registryPasswordSecretName
+          value: registry.listCredentials().passwords[0].value
+        }
+      ]
       registries: [
         {
           server: registry.properties.loginServer
-          identity: identity.id
+          username: registry.name
+          passwordSecretRef: registryPasswordSecretName
         }
       ]
       ingress: {
@@ -406,10 +405,17 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: [
+        {
+          name: registryPasswordSecretName
+          value: registry.listCredentials().passwords[0].value
+        }
+      ]
       registries: [
         {
           server: registry.properties.loginServer
-          identity: identity.id
+          username: registry.name
+          passwordSecretRef: registryPasswordSecretName
         }
       ]
       ingress: {
@@ -425,6 +431,10 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
           // Bootstrap image lets the Container App be created before azd remoteBuild
           // has pushed the application image to ACR. azd deploy replaces it afterward.
           image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+          env: [
+            { name: 'API_UPSTREAM', value: 'https://${api.properties.configuration.ingress.fqdn}' }
+            { name: 'API_UPSTREAM_HOST', value: api.properties.configuration.ingress.fqdn }
+          ]
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'

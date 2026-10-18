@@ -11,7 +11,10 @@ RUN npm run build
 
 FROM nginx:1.29-alpine
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+ENV API_UPSTREAM=http://api:8000 \
+    API_UPSTREAM_HOST=api
+
+COPY frontend/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
