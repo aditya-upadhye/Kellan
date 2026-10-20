@@ -19,9 +19,9 @@ from matchlens.models.events import (
     TackleEvent,
 )
 from matchlens.models.match import MatchMetadata
-from matchlens.models.pitch import PITCH_LENGTH_M, Point
+from matchlens.models.pitch import PITCH_LENGTH_M, PITCH_WIDTH_M, Point
 from matchlens.models.tracking import PlayerPos, TrackingFrame
-from matchlens.sim.shape import team_shape
+from matchlens.sim.shape import opponent_defensive_line, team_shape
 from matchlens.sim.space import (
     CENTRE_SPOT,
     HALFWAY_M,
@@ -47,6 +47,7 @@ RESPONSE_PER_SECOND = 0.35
 NOISE_PERSISTENCE = 0.85
 NOISE_STEP_SD_M = 0.35
 INVOLVEMENT_MS = 2_000
+SUPPORT_RUN_MS = 4_500
 COUNTER_WINDOW_MS = 6_000
 COUNTER_SURGE_M = 12.0
 COUNTER_RECOVERY_M = 8.0
@@ -215,12 +216,50 @@ class TrackingBuilder:
             self._focus[event.attrs.receiver_id] = Keyframe(
                 ms + INVOLVEMENT_MS, spot_of(event.end_location)
             )
+            if event.outcome == "complete":
+                self._start_support_run(event)
         elif event.player_id is not None and event.location is not None:
             if event.team_id == self._possession:
                 self._carrier_id = event.player_id
             destination = event.end_location if event.end_location is not None else event.location
             self._focus[event.player_id] = Keyframe(ms + INVOLVEMENT_MS, spot_of(destination))
         self._previous_event = event
+
+    def _start_support_run(self, event: PassEvent) -> None:
+        if self._rng.random() >= 0.28:
+            return
+        side = event.team_id
+        attacking_right = attacks_right(side, event.clock.period)
+        ball = spot_of(event.end_location)
+        ball_frame = to_attacking_frame(ball, attacking_right=attacking_right)
+        if ball_frame.x >= PITCH_LENGTH_M - 20.0:
+            return
+        team = self._teams[side]
+        candidates = [
+            player
+            for player in team.outfield()
+            if player.player_id not in {event.player_id, event.attrs.receiver_id}
+            and player.player.role in {"W", "AM", "ST"}
+        ]
+        if not candidates:
+            return
+        runner = self._rng.choice(candidates)
+        shape = team_shape(team, ball, attacking_right=attacking_right, in_possession=True)
+        runner_frame = to_attacking_frame(shape[runner.player_id], attacking_right=attacking_right)
+        onside_limit = opponent_defensive_line(ball_frame.x) - 1.5
+        available_run = min(onside_limit, PITCH_LENGTH_M - 2.0) - runner_frame.x
+        if available_run < 2.5:
+            return
+        run_depth = min(self._rng.uniform(4.0, 8.0), available_run)
+        lateral_shift = self._rng.uniform(-2.0, 2.0)
+        target = Spot(
+            runner_frame.x + run_depth,
+            min(max(runner_frame.y + lateral_shift, 2.0), PITCH_WIDTH_M - 2.0),
+        )
+        self._focus[runner.player_id] = Keyframe(
+            event.clock.ms + SUPPORT_RUN_MS,
+            from_attacking_frame(target, attacking_right=attacking_right),
+        )
 
     def _forget(self, player_id: str) -> None:
         self._positions.pop(player_id, None)

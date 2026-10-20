@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pitch3D } from './Pitch3D'
 import type { MatchEvent } from './generated/MatchEvent'
 import type { MatchMetadata } from './generated/MatchMetadata'
 import type { MetricSnapshot } from './generated/MetricSnapshot'
@@ -45,15 +46,15 @@ const speeds: PlaybackSpeed[] = [1, 10, 30, 60, 'max']
 const spanishEventLabels: Partial<Record<MatchEvent['type'], string>> = {
   kickoff: 'Inicio',
   pass: 'Pase',
-  carry: 'ConducciÃ³n',
+  carry: 'Conducción',
   tackle: 'Entrada',
-  interception: 'IntercepciÃ³n',
-  pressure: 'PresiÃ³n',
+  interception: 'Intercepción',
+  pressure: 'Presión',
   duel: 'Duelo',
   foul: 'Falta',
   substitution: 'Cambio',
-  possession_change: 'Cambio de posesiÃ³n',
-  ball_out: 'BalÃ³n fuera',
+  possession_change: 'Cambio de posesión',
+  ball_out: 'Balón fuera',
   period_end: 'Fin del periodo',
   match_end: 'Fin del partido',
 }
@@ -65,7 +66,7 @@ function formatClock(period: 1 | 2, ms: number): string {
 }
 
 function formatMetric(metric: MetricSnapshot | undefined, digits = 1): string {
-  if (!metric) return 'â€”'
+  if (!metric) return '—'
   const unit = metric.unit === '%' || metric.unit === 'km/h' || metric.unit === 'm' ? metric.unit : ''
   return `${metric.value.toFixed(digits)}${unit}`
 }
@@ -95,6 +96,11 @@ function App() {
   const [matchId, setMatchId] = useState<string | null>(null)
   const [match, setMatch] = useState<MatchResponse | null>(null)
   const [frame, setFrame] = useState<TrackingFrame | null>(null)
+  const [frameHistory, setFrameHistory] = useState<TrackingFrame[]>([])
+  const [pitchView, setPitchView] = useState<'2d' | '3d'>('3d')
+  const [camera, setCamera] = useState<'broadcast' | 'sideline' | 'goal'>('broadcast')
+  const [replayFrames, setReplayFrames] = useState<TrackingFrame[] | null>(null)
+  const [replayIndex, setReplayIndex] = useState(0)
   const [metrics, setMetrics] = useState<Map<string, MetricSnapshot>>(new Map())
   const [events, setEvents] = useState<MatchEventData[]>([])
   const [traces, setTraces] = useState<AgentTrace[]>([])
@@ -223,6 +229,7 @@ function App() {
       }
       if (envelope.kind === 'frame' && isRecord(data)) {
         const nextFrame = data as unknown as TrackingFrame
+        setFrameHistory((current) => [...current.slice(-59), nextFrame])
         setFrame(nextFrame)
         setMatch((current) =>
           current ? { ...current, clock: nextFrame.clock } : current,
@@ -278,6 +285,15 @@ function App() {
     return () => socket.close()
   }, [matchId])
 
+  useEffect(() => {
+    if (!replayFrames) return
+    const timer = window.setTimeout(() => {
+      if (replayIndex + 1 >= replayFrames.length) setReplayFrames(null)
+      else setReplayIndex(replayIndex + 1)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [replayFrames, replayIndex])
+
   const selectedScenario = scenarios.find((item) => item.name === scenario)
   const homeXg = getMetric(metrics, 'team.home.xg')
   const awayXg = getMetric(metrics, 'team.away.xg')
@@ -290,6 +306,10 @@ function App() {
   const pitchCues = cues.filter((cue) => cue.slot !== 'side_panel')
   const sidePanelCues = cues.filter((cue) => cue.slot === 'side_panel')
   const visibleRecaps = recaps.filter((recap) => recap.profile_id === primaryProfileId)
+  const displayedFrame = replayFrames?.[replayIndex] ?? frame
+  const displayedTrail = replayFrames
+    ? replayFrames.slice(Math.max(0, replayIndex - 13), replayIndex + 1)
+    : frameHistory.slice(-14)
 
   const removeCue = useCallback((cueId: string) => {
     setCues((current) => current.filter((cue) => cue.cue_id !== cueId))
@@ -314,6 +334,9 @@ function App() {
     setMatchId(null)
     setMatch(null)
     setFrame(null)
+    setFrameHistory([])
+    setReplayFrames(null)
+    setReplayIndex(0)
     setEvents([])
     setTraces([])
     setCues([])
@@ -404,12 +427,12 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="MatchLens home">
-          <span className="brand-mark">M</span>
-          <span>match<span className="brand-accent">lens</span></span>
+        <a className="brand" href="#top" aria-label="Kellan home">
+          <span className="brand-mark">K</span>
+          <span>kellan</span>
         </a>
         <div className="topbar-meta">
-          <span className="season-label">MERIDIAN LEAGUE Â· LIVE SIMULATION</span>
+          <span className="season-label">MERIDIAN LEAGUE · LIVE SIMULATION</span>
           <span className={`connection-state ${socketState}`}>
             <span className="connection-dot" />
             {socketState === 'live' ? 'CONNECTED' : socketState === 'connecting' ? 'CONNECTING' : 'LOCAL MODE'}
@@ -491,7 +514,7 @@ function App() {
             <select id="scenario" value={scenario} onChange={(event) => setScenario(event.target.value)} disabled={judgeMode}>
               {scenarios.map((item) => <option key={item.name} value={item.name}>{item.name.replaceAll('_', ' ')}</option>)}
             </select>
-            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenariosâ€¦'}</p>
+            <p className="field-hint">{selectedScenario?.description ?? 'Loading available scenarios…'}</p>
             <div className="form-row">
               <div className="seed-field">
                 <label htmlFor="seed">RANDOM SEED</label>
@@ -500,14 +523,14 @@ function App() {
               <div className="speed-field">
                 <label htmlFor="kickoff-speed">PLAYBACK SPEED</label>
                 <select id="kickoff-speed" value={speed} onChange={(event) => setSpeed(event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>)} disabled={judgeMode}>
-                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}
+                  {speeds.map((item) => <option key={item} value={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}
                 </select>
               </div>
             </div>
             {judgeMode && <button className="kickoff-button" onClick={() => void startMatch(true)} disabled={busy || profiles.length === 0}>START JUDGE MODE</button>}
             {!judgeMode && <button className="kickoff-button" onClick={() => void startMatch()} disabled={busy || scenarios.length === 0}>
-              <span>{busy ? 'PREPARING FIXTUREâ€¦' : 'KICK OFF MATCH'}</span>
-              <span className="button-arrow">â†—</span>
+              <span>{busy ? 'PREPARING FIXTURE…' : 'KICK OFF MATCH'}</span>
+              <span className="button-arrow">↗</span>
             </button>}
             {!judgeMode && <button className="judge-preset-button" onClick={() => void startMatch(true)} disabled={busy || profiles.length === 0}>START JUDGE MODE PRESET</button>}
             <p className="offline-note">
@@ -533,7 +556,7 @@ function App() {
               <span>{match.metadata.away.name}</span>
               <span className="team-crest crest-away" style={{ background: match.metadata.away.colors.primary, color: match.metadata.away.colors.secondary }}>{match.metadata.away.short_name}</span>
             </div>
-            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>â€”</i><strong>{formatMetric(awayXg, 2)}</strong></div>
+            <div className="score-xg"><span>xG</span><strong>{formatMetric(homeXg, 2)}</strong><i>—</i><strong>{formatMetric(awayXg, 2)}</strong></div>
           </section>
 
           <section
@@ -561,12 +584,20 @@ function App() {
           <section className="live-layout">
             <div className="live-main">
               <div className="pitch-panel">
+                <div className="pitch-view-controls" aria-label="Pitch view controls">
+                  <div className="pitch-view-toggle">
+                    <button type="button" className={pitchView === '3d' ? 'active' : ''} aria-pressed={pitchView === '3d'} onClick={() => setPitchView('3d')}>3D VIEW</button>
+                    <button type="button" className={pitchView === '2d' ? 'active' : ''} aria-pressed={pitchView === '2d'} onClick={() => setPitchView('2d')}>2D VIEW</button>
+                  </div>
+                  {pitchView === '3d' && <label>CAMERA <select aria-label="3D camera angle" value={camera} onChange={(event) => setCamera(event.target.value as typeof camera)}><option value="broadcast">Broadcast</option><option value="sideline">Sideline</option><option value="goal">Goal end</option></select></label>}
+                  <button type="button" className="pitch-replay-button" disabled={frameHistory.length < 2 && !replayFrames} onClick={() => { if (replayFrames) { setReplayFrames(null); return } setReplayFrames(frameHistory.slice(-15)); setReplayIndex(0) }}>{replayFrames ? 'RETURN LIVE' : 'REPLAY LAST 15s'}</button>
+                </div>
                 <div className="panel-heading">
-                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">Â·</span> PERIOD {match.clock.period}</div>
-                  <span className="frame-label">{frame ? `FRAME ${frame.frame_seq.toString().padStart(4, '0')}` : 'AWAITING TRACKING'}</span>
+                  <div><span className="live-indicator" /> LIVE PITCH <span className="panel-divider">·</span> PERIOD {match.clock.period}</div>
+                  <span className="frame-label">{replayFrames ? `REPLAY ${formatClock(displayedFrame?.clock.period ?? 1, displayedFrame?.clock.ms ?? 0)}` : frame ? `FRAME ${frame.frame_seq.toString().padStart(4, '0')}` : 'AWAITING TRACKING'}</span>
                 </div>
                 <div className="pitch-wrap">
-                  <svg className="pitch" viewBox="0 0 105 68" role="img" aria-label="Live top-down view of the football pitch">
+                  {pitchView === '3d' ? <Pitch3D frame={displayedFrame} trail={displayedTrail} camera={camera} homeColor={match.metadata.home.colors.primary} awayColor={match.metadata.away.colors.primary} frameDurationMs={speed === 'max' ? 60 : 1000 / speed} /> : <svg className="pitch" viewBox="0 0 105 68" role="img" aria-label="Live top-down view of the football pitch">
                     <defs><pattern id="mowing" width="15" height="68" patternUnits="userSpaceOnUse"><rect width="7.5" height="68" fill="#ffffff" opacity=".035" /></pattern></defs>
                     <rect x="0" y="0" width="105" height="68" rx="1.5" className="pitch-grass" />
                     <rect x="0" y="0" width="105" height="68" rx="1.5" fill="url(#mowing)" />
@@ -584,7 +615,7 @@ function App() {
                       <path d="M18 25.5 A9 9 0 0 1 18 42.5" />
                       <path d="M87 25.5 A9 9 0 0 0 87 42.5" />
                     </g>
-                    {frame?.players.map((player) => {
+                    {displayedFrame?.players.map((player) => {
                       const home = player.player_id.startsWith('h')
                       const team = home ? match.metadata.home : match.metadata.away
                       return <g key={player.player_id} className="player-marker" transform={`translate(${player.x} ${player.y})`}>
@@ -592,16 +623,17 @@ function App() {
                         <text y=".55" textAnchor="middle">{player.player_id.slice(1)}</text>
                       </g>
                     })}
-                    {frame && <g className="ball-marker" transform={`translate(${frame.ball.x} ${frame.ball.y})`}><circle r="1.25" /><circle r="2.4" className="ball-pulse" /></g>}
-                  </svg>
+                    {displayedFrame && <g className="ball-marker" transform={`translate(${displayedFrame.ball.x} ${displayedFrame.ball.y})`}><circle r="1.25" /><circle r="2.4" className="ball-pulse" /></g>}
+                  </svg>}
                   {!frame && <div className="pitch-loading"><span className="loading-ring" />{match.status === 'starting' ? 'Generating match data' : 'Waiting for first tracking frame'}</div>}
+                  {replayFrames && <div className="pitch-replay-badge">TRACKING REPLAY · LIVE MATCH CONTINUES</div>}
                   <div className="broadcast-overlay-layer" aria-live="polite">
-                    {pitchCues.map((cue) => (
+                    {!replayFrames && pitchCues.map((cue) => (
                       <CueOverlay key={cue.cue_id} cue={cue} active={cue.profile_id === primaryProfileId} onExpire={beginCueRemoval} onExitComplete={removeCue} />
                     ))}
                   </div>
                 </div>
-                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : 'â€”'}</b></span></div>
+                <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span><span className="ball-speed">BALL SPEED <b>{frame ? `${frame.ball_speed_kmh.toFixed(1)} km/h` : '—'}</b></span></div>
               </div>
 
               <div className="metrics-panel">
@@ -609,7 +641,7 @@ function App() {
                 <div className="metric-grid">
                   <div className="metric-card"><span className="metric-label">POSSESSION</span><div className="possession-values"><b>{formatMetric(homePossession, 0)}</b><span className="possession-track"><i style={{ width: `${Math.max(0, Math.min(100, homePossession?.value ?? 50))}%` }} /></span><b>{formatMetric(awayPossession, 0)}</b></div><div className="metric-subline"><span>{match.metadata.home.short_name}</span><span>{match.metadata.away.short_name}</span></div></div>
                   <MetricCard label="EXPECTED GOALS" home={formatMetric(homeXg, 2)} away={formatMetric(awayXg, 2)} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />
-                  <MetricCard label="PASSES COMPLETED" home={formatMetric(getMetric(metrics, 'team.home.passes'))} away={formatMetric(getMetric(metrics, 'team.away.passes'))} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />
+                  <MetricCard label="PASSES ATTEMPTED" home={formatMetric(getMetric(metrics, 'team.home.passes'), 0)} away={formatMetric(getMetric(metrics, 'team.away.passes'), 0)} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />
                   <div className="metric-card momentum-card"><span className="metric-label">MATCH MOMENTUM</span><div className="momentum-gauge"><span>{match.metadata.home.short_name}</span><div className="momentum-track"><i style={{ left: `${50 + Math.max(-50, Math.min(50, momentum?.value ?? 0))}%` }} /></div><span>{match.metadata.away.short_name}</span></div><div className="momentum-reading">{momentum ? momentum.value > 0 ? `${match.metadata.home.short_name} pressure` : momentum.value < 0 ? `${match.metadata.away.short_name} pressure` : 'Evenly balanced' : 'Calculating'}</div></div>
                 </div>
               </div>
@@ -617,15 +649,15 @@ function App() {
 
             <aside className="match-sidebar">
               <div className="control-panel">
-                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">â— {match.status.toUpperCase()}</span></div>
+                <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">● {match.status.toUpperCase()}</span></div>
                 <div className="control-buttons">
                   <button className="play-control" onClick={() => void control(match.status === 'paused' ? 'resume' : 'pause')} disabled={match.status === 'complete' || match.status === 'starting'} aria-label={match.status === 'paused' ? 'Resume match' : 'Pause match'}>
-                    {match.status === 'paused' ? <span className="play-icon">â–¶</span> : <span className="pause-icon"><i /><i /></span>}
+                    {match.status === 'paused' ? <span className="play-icon">▶</span> : <span className="pause-icon"><i /><i /></span>}
                     {match.status === 'paused' ? 'RESUME' : 'PAUSE'}
                   </button>
-                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}Ã—`}</option>)}</select></label>
+                  <label className="speed-control">SPEED<select value={speed} onChange={(event) => { const value = event.target.value === 'max' ? 'max' : Number(event.target.value) as Exclude<PlaybackSpeed, 'max'>; void control('speed', value) }}>{speeds.map((item) => <option value={item} key={item}>{item === 'max' ? 'MAX' : `${item}×`}</option>)}</select></label>
                 </div>
-                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>ï¼‹ NEW MATCH</button>
+                <button className="new-match-button" onClick={() => { setMatch(null); setMatchId(null); setSocketState('offline') }}>＋ NEW MATCH</button>
               </div>
 
               {sidePanelCues.map((cue) => (
@@ -634,7 +666,7 @@ function App() {
 
               <div className="timeline-panel">
                 <div className="panel-heading"><span>MATCH FEED</span><span className="feed-count">{events.length.toString().padStart(2, '0')}</span></div>
-                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">âŒ</span><p>Match events will appear here as the game unfolds.</p></div>}
+                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">•</span><p>Match events will appear here as the game unfolds.</p></div>}
               </div>
               <section className="agent-panel" aria-label="Agent activity">
                 <div className="panel-heading">
@@ -663,14 +695,14 @@ function App() {
                 </div>
               </section>
               <RecapPanel recaps={visibleRecaps} profileLabel={primaryProfile?.label ?? 'Viewer'} />
-              <div className="sidebar-footnote"><span>â“˜</span> Every event and metric is generated from the match simulation.</div>
+              <div className="sidebar-footnote"><span>ⓘ</span> Every event and metric is generated from the match simulation.</div>
             </aside>
           </section>
         </>
       )}
 
-      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">Ã—</button></div>}
-      <footer className="app-footer"><span>MATCHLENS <i>Â·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>Â·</i> BUILT FOR THE GAME</span></footer>
+      {error && <div className="error-banner" role="alert">{error}<button onClick={() => setError(null)} aria-label="Dismiss error">×</button></div>}
+      <footer className="app-footer"><span>KELLAN <i>·</i> MERIDIAN LEAGUE SIMULATION</span><span>LOCAL FIRST <i>·</i> BUILT FOR THE GAME</span></footer>
     </main>
   )
 }
@@ -778,7 +810,7 @@ function TraceRow({ trace }: { trace: AgentTrace }) {
 }
 
 function MetricCard({ label, home, away, homeName, awayName }: { label: string; home: string; away: string; homeName: string; awayName: string }) {
-  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>â€”</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
+  return <div className="metric-card"><span className="metric-label">{label}</span><div className="metric-pair"><b>{home}</b><i>—</i><b>{away}</b></div><div className="metric-subline"><span>{homeName}</span><span>{awayName}</span></div></div>
 }
 
 function ProfileView({
@@ -820,7 +852,7 @@ function ProfileView({
 
   let summary: string
   if (profile.mode === 'analyst') {
-    summary = `xG ${formatMetric(homeXg, 2)}â€“${formatMetric(awayXg, 2)} Â· ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesiÃ³n' : 'possession'}`
+    summary = `xG ${formatMetric(homeXg, 2)}–${formatMetric(awayXg, 2)} · ${homeName} ${formatMetric(homePossession, 0)} / ${awayName} ${formatMetric(awayPossession, 0)} ${spanish ? 'posesión' : 'possession'}`
   } else if (profile.mode === 'player_focus') {
     const favoritePlayer = [
       ...match.metadata.home.players,
@@ -832,7 +864,7 @@ function ProfileView({
     const involved = latestEvent?.player_id === profile.favorite_player_id
     summary = involved
       ? spanish
-        ? `${favoritePlayer?.name ?? profile.label} aparece en la acciÃ³n mÃ¡s reciente.`
+        ? `${favoritePlayer?.name ?? profile.label} aparece en la acción más reciente.`
         : `${favoritePlayer?.name ?? profile.label} appears in the latest action.`
       : favoriteEvent
         ? spanish
@@ -882,7 +914,7 @@ function englishEventSummary(
   if (event.type === 'goal') return `A goal for ${team ?? 'the match'} changes the score.`
   if (event.type === 'card') return `A card adds pressure${team ? ` for ${team}` : ''}.`
   if (event.type === 'shot') return `A shot tests the defence${team ? ` of ${team}` : ''}.`
-  return `${event.type.replaceAll('_', ' ')}${team ? ` Â· ${team}` : ''}.`
+  return `${event.type.replaceAll('_', ' ')}${team ? ` · ${team}` : ''}.`
 }
 
 function spanishEventSummary(
@@ -890,12 +922,12 @@ function spanishEventSummary(
   homeName: string,
   awayName: string,
 ): string {
-  if (!event) return 'Esperando la primera acciÃ³n del partido.'
+  if (!event) return 'Esperando la primera acción del partido.'
   const team = event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : null
   if (event.type === 'goal') return `Gol de ${team ?? 'el partido'}; cambia el marcador.`
-  if (event.type === 'card') return `Una tarjeta aÃ±ade presiÃ³n${team ? ` a ${team}` : ''}.`
+  if (event.type === 'card') return `Una tarjeta añade presión${team ? ` a ${team}` : ''}.`
   if (event.type === 'shot') return `Un disparo pone a prueba la defensa${team ? ` de ${team}` : ''}.`
-  return `${spanishEventLabels[event.type] ?? 'AcciÃ³n'}${team ? ` Â· ${team}` : ''}.`
+  return `${spanishEventLabels[event.type] ?? 'Acción'}${team ? ` · ${team}` : ''}.`
 }
 
 function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeName: string; awayName: string }) {
@@ -903,8 +935,8 @@ function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeNa
   const label = event.type.replaceAll('_', ' ').toUpperCase()
   return <article className={`event-row${isGoal ? ' goal-event' : ''}`}>
     <span className="event-time">{formatClock(event.clock.period, event.clock.ms)}</span>
-    <span className="event-symbol">{isGoal ? 'âš½' : event.type === 'card' ? 'â–°' : event.type === 'shot' ? 'â†—' : 'Â·'}</span>
-    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` Â· ${event.player_id.toUpperCase()}` : ''}</span></div>
+    <span className="event-symbol">{isGoal ? '⚽' : event.type === 'card' ? '▰' : event.type === 'shot' ? '↗' : '·'}</span>
+    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` · ${event.player_id.toUpperCase()}` : ''}</span></div>
   </article>
 }
 

@@ -4,6 +4,11 @@ All notable changes are recorded here, one section per milestone tag.
 
 ## [Unreleased] - M8 Azure deployment
 
+### Presentation
+
+- Added an interactive CSS 3D stadium driven by the existing synthetic player and ball tracking, with stands, floodlights, player figures, drag-to-orbit, three camera presets, and the original 2D view.
+- Added a replay control for the last 15 received tracking frames. The match continues live while the replay runs, and live overlay cues are hidden over replay frames.
+
 ### Added
 
 - Added Bicep for a Consumption Container Apps environment, API and web apps, a Basic Container Registry, Basic Event Hubs, serverless Cosmos DB, a Foundry project with the fast and strong model deployments, Application Insights and Log Analytics.
