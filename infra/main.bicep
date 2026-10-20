@@ -1,6 +1,6 @@
 targetScope = 'resourceGroup'
 
-@description('Azure region for the MatchLens resources. Use a region enabled for the subscription and selected Foundry models.')
+@description('Azure region for the Kellan resources. Use a region enabled for the subscription and selected Foundry models.')
 param location string = 'westus2'
 
 @description('Azure region for Cosmos DB. Defaults to the main deployment region; override if Cosmos DB capacity is unavailable there.')

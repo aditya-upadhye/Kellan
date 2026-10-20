@@ -238,8 +238,8 @@ resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-0
     type: 'SystemAssigned'
   }
   properties: {
-    displayName: 'MatchLens ${environmentName}'
-    description: 'Foundry project for MatchLens match insights.'
+    displayName: 'Kellan ${environmentName}'
+    description: 'Foundry project for live football story integrity and evidence-backed match insights.'
   }
 }
 

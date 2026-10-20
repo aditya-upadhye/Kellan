@@ -22,7 +22,7 @@ In **Repository > Settings > Secrets and variables > Actions > Variables**, add:
 | `AZURE_SUBSCRIPTION_ID` | Subscription ID containing the deployment resource group |
 | `AZURE_ENV_NAME` | Short azd environment name, such as `prod` |
 | `AZURE_LOCATION` | Allowed Azure region, such as `westus2` |
-| `AZURE_RESOURCE_GROUP` | Existing resource group for this MatchLens deployment |
+| `AZURE_RESOURCE_GROUP` | Existing resource group for this Kellan deployment |
 
 These identifiers are not credentials. Do not add a client secret; the workflow exchanges its GitHub OIDC token for Azure access.
 

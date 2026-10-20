@@ -1,10 +1,12 @@
-# MatchLens
+# Kellan
 
-MatchLens turns a synthetic football event stream into fact-checked, personalized on-screen insights.
-Code computes every number, agents write every sentence, and a Fact-Checker agent guarantees the two agree.
+Kellan turns a synthetic football event stream into fact-checked, personalized on-screen insights. It gives producers a live story-integrity layer: each insight is grounded in event evidence, checked before publication, and revised when the match facts change.
+Code computes every number, agents write every sentence, and a Fact-Checker agent checks that they agree.
+
+**No evidence, no airtime.**
 
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
-Everything in MatchLens is fictional: league, clubs, players and venues are invented.
+Everything in Kellan is fictional: league, clubs, players and venues are invented.
 
 > **Status:** M1–M7 are complete; M8 Azure deployment is in progress on `m8-azure`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
@@ -112,6 +114,8 @@ npm --prefix frontend run dev
 ```
 
 Open the Vite URL shown in the frontend terminal. Choose a scenario and playback speed, then kick off a match. The browser connects to the local API for the live score, tracking view, metrics, event feed and match controls. No Azure resources or LLM credentials are required.
+
+The live pitch opens in a CSS 3D stadium with spectator stands, floodlights, a scoreboard, player figures, and a moving ball driven by the synthetic tracking feed. Drag to orbit the scene, use **3D VIEW / 2D VIEW** to switch perspectives, choose a broadcast, sideline or goal-end camera, and select **REPLAY LAST 15s** to inspect recent player and ball movement while the live match continues. The replay uses received tracking frames; it does not simulate an alternative outcome. Broadcast cues are hidden over replay frames so their live timing cannot be mistaken for replay evidence.
 
 To run the full stack with Docker instead:
 

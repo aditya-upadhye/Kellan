@@ -72,7 +72,7 @@ describe('App', () => {
   it('renders the live match kickoff screen', () => {
     render(<App />)
 
-    expect(screen.getByRole('link', { name: 'MatchLens home' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Kellan home' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'See the game take shape.' })).toBeInTheDocument()
   })
 
