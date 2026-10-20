@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
+from matchlens.api.evidence import inspect_insight
 from matchlens.api.matches import (
     MatchCapacityError,
     MatchControlRequest,
@@ -15,6 +16,7 @@ from matchlens.api.matches import (
 )
 from matchlens.config import Settings, get_settings
 from matchlens.models.cues import OverlayCue, Recap, RecapKind
+from matchlens.models.evidence import InsightEvidence
 from matchlens.models.profiles import ViewerProfile
 from matchlens.models.traces import AgentTrace
 from matchlens.obs import configure_console_tracing
@@ -115,6 +117,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     _register_recap_route(app, manager)
+
+    @app.get(
+        "/api/matches/{match_id}/insights/{insight_id}/evidence", response_model=InsightEvidence
+    )
+    async def get_insight_evidence(match_id: str, insight_id: str) -> InsightEvidence:
+        session = _get_session(manager, match_id)
+        try:
+            return await inspect_insight(session, insight_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail=str(error)) from error
 
     @app.get("/api/matches/{match_id}/trace")
     async def get_trace(match_id: str) -> dict[str, list[AgentTrace]]:

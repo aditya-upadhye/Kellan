@@ -4,9 +4,21 @@ All notable changes are recorded here, one section per milestone tag.
 
 ## [Unreleased] - M8 Azure deployment
 
+### Insight inspection
+
+- Added a persistent published-story shelf and SHOW ME WHY inspector connecting exact published wording, pinned metrics, independent recomputation, historical 3D/2D replay, and per-moment agent decisions.
+- Added a published-insight evidence endpoint and generated contract. Generation-time snapshots prevent newer tracking samples at the same event sequence from changing the evidence. Recalculation excludes future inputs and reports missing history as unavailable.
+- Added source-event selection, replay seeking, pitch markings, camera focus, and audience switching without resetting replay position. Live playback continues during inspection.
+- Added coverage for pinned snapshots, recomputation mismatches, missing history, unpublished insight rejection, expired overlays, stale requests, and inspector interaction.
+
+
 ### Presentation
 
-- Added an interactive CSS 3D stadium driven by the existing synthetic player and ball tracking, with stands, floodlights, player figures, drag-to-orbit, three camera presets, and the original 2D view.
+- Replaced the CSS stadium with a Three.js WebGL scene: textured pitch, goal nets, instanced spectators, floodlights, dynamic shadows, and modeled footballers with articulated limbs. Added orbit/zoom controls, ball follow, player-number visibility, and camera reset. Kept the original 2D view and added an unavailable-renderer message.
+- Added bounded cubic player interpolation, movement-facing rotation, ball-facing head turns, distance-driven strides, planted supporting feet, and ball rolling. Passing and shooting poses follow authored ball contacts. Interpolation resets for halftime, match changes, replay seeks, and large tracking gaps.
+- Extended tracking frames with synthetic subsecond ball trajectories, exact contacts, and authored pass/shot height. Short flights retain their timing within each tracking second. Dead balls wait for restart rather than drifting back across the pitch; restart placements are excluded from measured ball speed.
+- Improved synthetic movement with anticipatory positioning before player involvement, local separation in formation, and velocity correction at pitch boundaries. Kept existing acceleration and speed limits.
+- Loaded the 3D renderer separately from the application and made replay run at 1x independently of live playback speed.
 - Added a replay control for the last 15 received tracking frames. The match continues live while the replay runs, and live overlay cues are hidden over replay frames.
 
 ### Added

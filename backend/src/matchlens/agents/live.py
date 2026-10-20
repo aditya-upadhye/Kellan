@@ -7,6 +7,7 @@ from time import monotonic
 from typing import TYPE_CHECKING, cast
 
 from matchlens.agents.detector import DETECTOR_INTERVAL_MS, DetectorAgent
+from matchlens.agents.evidence import EvidenceAnchor
 from matchlens.agents.producer import ProducerScheduler, ScheduleResult
 from matchlens.agents.recap import RecapAgent, RecapSource
 from matchlens.agents.timing import MatchTimeline
@@ -69,6 +70,7 @@ class LiveAgentWorkflow:
         self._clock = MatchClock(period=1, ms=0)
         self._score: dict[TeamSide, int] = {"home": 0, "away": 0}
         self.insights: list[Insight] = []
+        self.evidence: dict[str, EvidenceAnchor] = {}
         self._contexts: dict[str, MomentWork] = {}
         self._candidates: dict[str, Moment] = {}
         self._selection_lock = asyncio.Lock()
@@ -200,7 +202,11 @@ class LiveAgentWorkflow:
                 outputs = result.get_outputs()
                 if len(outputs) != 1 or not isinstance(outputs[0], MomentResult):
                     raise TypeError("unexpected insight workflow output")
-                return outputs[0]
+                result = outputs[0]
+                self.evidence[result.insight.insight_id] = EvidenceAnchor(
+                    work.moment, result.insight, work.store
+                )
+                return result
             except Exception as error:
                 self._trace(work.moment.moment_id, "workflow", "error", type(error).__name__)
                 return None

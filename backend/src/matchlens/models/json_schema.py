@@ -7,6 +7,7 @@ from pydantic import JsonValue, TypeAdapter
 from matchlens.models.cues import OverlayCue, Recap
 from matchlens.models.envelope import StreamEnvelope
 from matchlens.models.events import MATCH_EVENT_ADAPTER
+from matchlens.models.evidence import InsightEvidence
 from matchlens.models.insights import Insight, Moment
 from matchlens.models.match import MatchMetadata
 from matchlens.models.metrics import MetricSnapshot
@@ -18,6 +19,7 @@ JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 SCHEMA_FILE_SUFFIX = ".schema.json"
 
 EXPORTED_CONTRACTS: dict[str, TypeAdapter[Any]] = {
+    "InsightEvidence": TypeAdapter(InsightEvidence),
     "MatchMetadata": TypeAdapter(MatchMetadata),
     "MatchEvent": MATCH_EVENT_ADAPTER,
     "TrackingFrame": TypeAdapter(TrackingFrame),

@@ -325,8 +325,8 @@ describe('App', () => {
       )
     })
 
-    expect(await screen.findByText('Control is shifting')).toBeInTheDocument()
-    expect(screen.getByText('VERIFIED FROM match.momentum')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Show me why: Control is shifting' })).toBeInTheDocument()
+    expect(await screen.findByText('VERIFIED FROM match.momentum')).toBeInTheDocument()
     const recap = screen.getByRole('region', { name: 'Analyst match recap' })
     expect(within(recap).getByText('Half-time recap')).toBeInTheDocument()
     expect(within(recap).getByText('Kestrel Bay controlled the first half.')).toBeInTheDocument()
@@ -341,7 +341,7 @@ describe('App', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Primary viewer profile' }), {
       target: { value: 'analyst_en' },
     })
-    expect(await screen.findByText('Control is shifting')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Show me why: Control is shifting' })).toBeInTheDocument()
 
     act(() => {
       sockets[0]?.onmessage?.(
@@ -354,6 +354,7 @@ describe('App', () => {
         }),
       )
     })
-    await waitFor(() => expect(screen.queryByText('Control is shifting')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('article', { name: 'stat bar overlay' })).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Show me why: Control is shifting' })).toBeInTheDocument()
   })
 })

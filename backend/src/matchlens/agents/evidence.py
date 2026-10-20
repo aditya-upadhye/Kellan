@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from matchlens.models.insights import Moment
+    from matchlens.models.insights import Insight, Moment
     from matchlens.models.metrics import MetricSnapshot
     from matchlens.store.base import MetricStore
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceAnchor:
+    """Retain the generation-time read-only metric view for published stories."""
+
+    moment: Moment
+    insight: Insight
+    store: MetricStore
 
 
 async def moment_evidence(moment: Moment, store: MetricStore) -> list[MetricSnapshot]:

@@ -121,6 +121,72 @@ h1 { margin-bottom: 7px; font: 600 30px/1.15 var(--display); letter-spacing: -1.
 .profile-view-footer p { margin: 0; font-size: 11px; line-height: 1.45; }
 
 .live-layout { display: grid; grid-template-columns: minmax(0, 1fr) 315px; align-items: start; gap: 19px; }
+.live-layout.inspecting { grid-template-columns: minmax(0, 1fr) 390px; }
+.insight-shelf { margin: 0 0 20px; padding: 20px; border: 1px solid #425247; border-radius: 6px; background: linear-gradient(115deg, #19281f, #111b20 70%); }
+.insight-shelf-heading { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 16px; }
+.evidence-kicker { color: var(--lime); font: 8px var(--mono); letter-spacing: .13em; }
+.insight-shelf h2 { margin: 8px 0 0; color: #eef3e9; font: 500 22px var(--display); }
+.insight-shelf-heading > span { flex-shrink: 0; color: #8ca497; font: 8px var(--mono); }
+.insight-cards { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 32%); gap: 12px; overflow-x: auto; padding: 0 0 7px; }
+.insight-story { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; padding: 15px; border: 1px solid #3b4c44; border-radius: 4px; color: #ebeee7; background: #0e191b; text-align: left; cursor: pointer; }
+.insight-story:hover, .insight-story.selected { border-color: var(--lime); background: #1b2921; }
+.insight-story:focus-visible, .evidence-inspector button:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.story-meta { display: flex; justify-content: space-between; gap: 8px; color: #c6d8b3; font: 9px var(--mono); }
+.story-meta i { color: #899c93; font-style: normal; text-transform: uppercase; }
+.insight-story > strong { font: 600 15px/1.35 var(--display); }
+.story-excerpt { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #9eafa5; font-size: 11px; line-height: 1.5; }
+.story-inspect { display: flex; justify-content: space-between; margin-top: auto; padding-top: 8px; border-top: 1px solid #2a3b31; color: var(--lime); font: 9px var(--mono); }
+.story-inspect b { font-size: 14px; }
+.insight-empty { margin: 0; max-width: 780px; color: #9cad9f; font-size: 12px; line-height: 1.7; }
+.evidence-inspector { max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px; border: 1px solid #7c8960; border-radius: 5px; background: #101b1e; scrollbar-color: #475745 #101b1e; }
+.inspector-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 15px; }
+.inspector-heading h2 { margin: 8px 0 0; color: #edf2e9; font: 500 19px/1.3 var(--display); }
+.inspector-heading > button { padding: 0 4px; border: 0; color: #a7b5ad; background: transparent; font-size: 24px; cursor: pointer; }
+.evidence-version-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.evidence-version-tabs button, .evidence-playback button, .inspector-message button, .claim-choices button { min-height: 30px; padding: 6px 9px; border: 1px solid #354940; border-radius: 3px; color: #aabdb0; background: #142321; font: 8px var(--mono); cursor: pointer; }
+.evidence-version-tabs button[aria-pressed="true"], .claim-choices button[aria-pressed="true"] { border-color: var(--lime); color: var(--lime); }
+.inspected-story { margin: 18px 0 10px; padding: 15px 0; border-top: 1px solid #2b3e34; border-bottom: 1px solid #2b3e34; }
+.inspected-story h3 { margin: 8px 0; color: #edf2e8; font: 600 17px/1.45 var(--display); }
+.inspected-story p { margin: 0 0 10px; color: #c7d4cb; font-size: 13px; line-height: 1.8; }
+.inspected-story > small { color: #8b9d91; font: 8px var(--mono); }
+.claim-phrase { display: inline; padding: 0 2px; border: 0; border-bottom: 1px dashed #ddb765; border-radius: 2px; color: #f5d795; background: #b09c4720; font: inherit; cursor: pointer; }
+.claim-phrase.selected { color: #162116; background: #e8d28b; border-bottom-color: transparent; }
+.numeric-verdict { color: #b1ce92; font: 8px var(--mono); letter-spacing: .06em; }
+.numeric-verdict.failed, .evidence-errors { color: #f1a486; }
+.evidence-errors { padding-left: 18px; font-size: 10px; line-height: 1.6; }
+.claim-calculation, .evidence-replay-controls, .evidence-event-list { margin-top: 18px; padding-top: 16px; border-top: 1px solid #2b3e34; }
+.calculation-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #8fa79a; font: 8px var(--mono); }
+.calculation-match { color: var(--lime); font-size: 8px; }
+.calculation-warning { color: #efba86; font-size: 8px; }
+.claim-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.claim-calculation > p { color: #c0cfc4; font-size: 12px; line-height: 1.65; }
+.calculation-values { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; padding: 13px 10px; border: 1px solid #334638; border-radius: 4px; background: #172720; }
+.calculation-values dt { color: #8da395; font: 8px/1.6 var(--mono); }
+.calculation-values dd { margin: 6px 0 0; color: #e9f2df; font: 600 20px var(--display); overflow-wrap: anywhere; }
+.claim-calculation > p.evidence-scope, .evidence-replay-controls > p, .evidence-interpretation { color: #8fa295; font-size: 10px; line-height: 1.7; }
+.claim-calculation details { color: #9daf9f; font-size: 10px; }
+.claim-calculation details code, .claim-calculation details small { display: block; margin-top: 7px; overflow-wrap: anywhere; color: #94ac9c; font-size: 9px; }
+.evidence-inspector summary { cursor: pointer; }
+.evidence-playback { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.evidence-replay-controls input { width: 100%; min-height: 28px; accent-color: var(--lime); }
+.evidence-source-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #ffd37c; }
+.evidence-event-list > button { display: grid; grid-template-columns: 35px 1fr 48px; gap: 7px; width: 100%; min-height: 35px; padding: 8px 5px; border: 0; border-bottom: 1px solid #263a30; color: #92aba3; background: transparent; font: 8px var(--mono); text-align: left; cursor: pointer; }
+.evidence-event-list > button strong { font-weight: 500; text-transform: uppercase; }
+.evidence-event-list > button span { text-align: right; font-size: 7px; }
+.evidence-event-list > button.source-event { color: #e4c77f; }
+.evidence-event-list > button[aria-pressed="true"] { background: #293529; outline: 1px solid #817c4f; }
+.evidence-agent-decisions { margin-top: 18px; padding: 13px 0; border-top: 1px solid #2b3e34; color: #b9cdbd; font-size: 11px; }
+.evidence-agent-decisions summary > span { margin-left: 8px; color: #708b78; }
+.evidence-agent-decisions article { margin-top: 10px; padding: 10px; border-left: 2px solid #587b4a; background: #18271f; }
+.evidence-agent-decisions article.rejected { border-color: #d7a166; background: #2a251d; }
+.evidence-agent-decisions article > div { display: flex; justify-content: space-between; gap: 8px; font: 8px var(--mono); text-transform: uppercase; }
+.evidence-agent-decisions article p { color: #91a693; font-size: 10px; line-height: 1.6; }
+.evidence-agent-decisions blockquote { margin: 8px 0 0; color: #d2bca0; font-size: 10px; line-height: 1.6; }
+.evidence-identity { display: flex; flex-direction: column; gap: 7px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #2b3e34; color: #89a28c; font: 8px var(--mono); }
+.evidence-identity code { overflow-wrap: anywhere; color: #bcd19d; }
+.inspector-message { padding: 10px 0; color: #aebfb1; font-size: 12px; line-height: 1.7; }
+.cue-inspect { margin-top: 9px; padding: 5px 0; border: 0; color: var(--lime); background: transparent; font: 8px var(--mono); cursor: pointer; pointer-events: auto; }
+.evidence-legend { color: #d8bd7d; }
 .live-main { display: grid; gap: 19px; min-width: 0; }
 .pitch-panel, .metrics-panel, .control-panel, .timeline-panel { border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; min-height: 46px; padding: 0 17px; border-bottom: 1px solid #202c31; color: #b9c5c8; font-size: 9px; }
@@ -147,52 +213,22 @@ h1 { margin-bottom: 7px; font: 600 30px/1.15 var(--display); letter-spacing: -1.
 .cue-moment_card { border-left: 3px solid var(--lime); }
 .cue-stat_bar { border-bottom: 2px solid #53a6ad; }
 .pitch { display: block; width: 100%; max-height: 440px; aspect-ratio: 105 / 68; overflow: visible; }
-.pitch-3d { position: relative; height: 560px; max-height: none; aspect-ratio: auto; overflow: hidden; perspective: 1000px; background: radial-gradient(ellipse at 50% 48%, #18342d 0, #0b1b1b 54%, #071014 100%); cursor: grab; user-select: none; touch-action: pan-y; }
-.pitch-3d:active { cursor: grabbing; }
-.stadium-glow { position: absolute; inset: 7% 8%; border-radius: 50%; background: radial-gradient(ellipse, #3f7a5438, transparent 69%); filter: blur(28px); }
-.stadium-world { position: absolute; top: 51%; left: 50%; width: 800px; height: 530px; transform-style: preserve-3d; transform: translate(-50%, -50%) rotateX(59deg) rotateZ(calc(-4deg + var(--orbit))) scale(.93); transition: transform .5s ease; }
-.camera-sideline .stadium-world { transform: translate(-50%, -50%) rotateX(67deg) rotateZ(calc(-20deg + var(--orbit))) scale(1.02); }
-.camera-goal .stadium-world { transform: translate(-50%, -50%) rotateX(64deg) rotateZ(calc(-68deg + var(--orbit))) scale(.76); }
-.stadium-plinth { position: absolute; inset: 0; border: 5px solid #4b6662; border-radius: 12px; background: linear-gradient(145deg, #45545a, #202d34 55%, #131e25); box-shadow: 0 26px 0 #101b21, 0 37px 0 #081116, 0 46px 55px #000b; transform: translateZ(0); }
-.stadium-tier { position: absolute; z-index: 1; border: 3px solid #819596; border-radius: 5px; background-color: #243842; background-image: radial-gradient(circle, #d6d5c2 0 2px, #19343c 2.5px 4px, transparent 4.5px), linear-gradient(90deg, #2c8095, #728b8d 47%, #b87961); background-size: 9px 9px, 100% 100%; box-shadow: inset 0 0 0 6px #1a2b33, 0 0 0 2px #16242a; }
-.stadium-tier-north { top: 5px; left: 54px; width: 692px; height: 47px; transform: translateZ(44px) rotateX(-28deg); }
-.stadium-tier-south { bottom: 4px; left: 54px; width: 692px; height: 47px; transform: translateZ(37px) rotateX(25deg); }
-.stadium-tier-west { top: 53px; left: 4px; width: 50px; height: 424px; transform: translateZ(38px) rotateY(27deg); }
-.stadium-tier-east { top: 53px; right: 4px; width: 50px; height: 424px; transform: translateZ(38px) rotateY(-27deg); }
-.stadium-board { position: absolute; top: -4px; left: 50%; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 174px; padding: 7px; border: 2px solid #8da29b; border-radius: 3px; color: #e6eddb; background: #07141a; box-shadow: 0 0 15px #baf07555; transform: translateX(-50%) translateZ(82px) rotateX(-59deg); text-align: center; }
-.stadium-board small { color: #adce8e; font: 7px var(--mono); letter-spacing: .12em; }
-.stadium-board strong { font: 700 13px var(--display); letter-spacing: .13em; }
-.stadium-light { position: absolute; z-index: 5; width: 8px; height: 145px; border: 2px solid #9cad9f; background: linear-gradient(90deg, #90aa9c, #344d51); box-shadow: 2px 4px 9px #071017; transform-origin: 50% 100%; transform: translateZ(38px) rotateX(-59deg); }
-.stadium-light span { position: absolute; top: -12px; left: -17px; width: 38px; height: 16px; border: 2px solid #dce6bd; border-radius: 2px; background: repeating-linear-gradient(90deg, #fff9bf 0 5px, #d0dfba 5px 7px); box-shadow: 0 0 18px 8px #fff4a276, 0 0 55px 17px #d8f5ae44; }
-.light-nw { top: 48px; left: 52px; }.light-ne { top: 48px; right: 52px; }.light-sw { bottom: 44px; left: 52px; }.light-se { bottom: 44px; right: 52px; }
-.stadium-field { position: absolute; top: 55px; left: 60px; z-index: 2; width: 680px; height: 420px; overflow: visible; border: 4px solid #a4bca3; border-radius: 4px; background: #236c45; box-shadow: 0 0 0 8px #293c3b, 0 8px 16px #050e10; transform: translateZ(32px); transform-style: preserve-3d; }
-.stadium-stripes { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, #24794d 0 48px, #206b45 48px 96px); transform: translateZ(1px); }
-.field-outline { position: absolute; inset: 8px; border: 2px solid #e0ebd6; transform: translateZ(2px); }
-.field-centre-line { position: absolute; top: 9px; bottom: 9px; left: 50%; border-left: 2px solid #e0ebd6; transform: translateZ(2px); }
-.field-centre-circle { position: absolute; top: 50%; left: 50%; width: 118px; height: 118px; border: 2px solid #e0ebd6; border-radius: 50%; transform: translate(-50%, -50%) translateZ(2px); }
-.field-centre-spot, .field-spot { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #f0f2de; }
-.field-centre-spot { top: 50%; left: 50%; transform: translate(-50%, -50%) translateZ(2px); }.field-spot { top: 50%; transform: translateY(-50%) translateZ(2px); }.field-spot.left { left: 11%; }.field-spot.right { right: 11%; }
-.field-penalty, .field-six { position: absolute; top: 20%; width: 107px; height: 60%; border: 2px solid #e0ebd6; transform: translateZ(2px); }.field-penalty.left, .field-six.left { left: 8px; border-left: 0; }.field-penalty.right, .field-six.right { right: 8px; border-right: 0; }
-.field-six { top: 36%; width: 37px; height: 28%; }
-.field-goal { position: absolute; top: 44%; width: 19px; height: 12%; border: 3px solid #f6f4df; background: repeating-linear-gradient(0deg, #e6e8d059 0 1px, transparent 1px 9px), repeating-linear-gradient(90deg, #e6e8d059 0 1px, transparent 1px 9px); box-shadow: 0 0 8px #fff9; transform: translateZ(16px); }.field-goal.left { left: -19px; }.field-goal.right { right: -19px; }
-.stadium-trail { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform: translateZ(2px); }.stadium-trail polyline { fill: none; stroke: #f4dd69; stroke-width: .35; stroke-linecap: round; stroke-dasharray: 1 1; filter: drop-shadow(0 0 3px #f8f09f); }
-.stadium-player, .stadium-ball { position: absolute; z-index: 5; width: 20px; height: 20px; transform-style: preserve-3d; transition: left var(--frame-duration, .1s) linear, top var(--frame-duration, .1s) linear; }
-.player-shadow, .ball-shadow { position: absolute; top: 7px; left: 1px; width: 23px; height: 10px; border-radius: 50%; background: #061912a8; filter: blur(3px); }
-.player-figure { position: absolute; bottom: 8px; left: 2px; width: 16px; height: 39px; transform: translateZ(30px) rotateX(-59deg); filter: drop-shadow(1px 3px 2px #0009); }
-.player-figure i { position: absolute; display: block; }.player-head { top: 0; left: 5px; width: 9px; height: 9px; border-radius: 50%; background: #dfb48b; }.player-shirt { top: 9px; left: 3px; width: 13px; height: 16px; border: 1px solid #ffffff9c; border-radius: 4px 4px 2px 2px; background: var(--kit); }.player-arm { top: 10px; width: 4px; height: 16px; border-radius: 3px; background: #d5ac82; }.arm-left { left: 0; transform: rotate(14deg); }.arm-right { right: 0; transform: rotate(-14deg); }.player-shorts { top: 24px; left: 4px; width: 11px; height: 5px; background: #e5edf0; }.player-leg { top: 28px; width: 4px; height: 11px; border-radius: 2px; background: #d8b48d; }.leg-left { left: 4px; transform: rotate(8deg); }.leg-right { right: 3px; transform: rotate(-8deg); }
-.player-number { position: absolute; top: 17px; left: 50%; padding: 1px 2px; color: #fff; background: #09201fba; font: 700 9px var(--mono); text-shadow: 0 1px 2px #000; transform: translateX(-50%) translateZ(33px) rotateX(-59deg); }
-.stadium-player.is-moving .player-figure { animation: player-bob var(--stride-duration, .5s) ease-in-out infinite; transform-origin: 50% 100%; }
-.stadium-player.is-moving .player-arm { animation: arm-swing var(--stride-duration, .5s) ease-in-out infinite; transform-origin: 50% 0; }
-.stadium-player.is-moving .player-leg { animation: leg-swing var(--stride-duration, .5s) ease-in-out infinite; transform-origin: 50% 0; }
-.stadium-player.is-moving .arm-right, .stadium-player.is-moving .leg-right { animation-delay: calc(var(--stride-duration, .5s) * -.5); }
-@keyframes player-bob { 0%, 100% { transform: translateZ(30px) rotateX(-59deg) translateY(0); } 50% { transform: translateZ(30px) rotateX(-59deg) translateY(-1.5px); } }
-@keyframes arm-swing { 0%, 100% { rotate: 18deg; } 50% { rotate: -18deg; } }
-@keyframes leg-swing { 0%, 100% { rotate: -22deg; } 50% { rotate: 22deg; } }
-.stadium-ball { z-index: 7; }.ball-sphere { position: absolute; bottom: 13px; left: 3px; width: 14px; height: 14px; border: 1px solid #abb7b3; border-radius: 50%; background: radial-gradient(circle at 30% 26%, #fff 0 29%, #b7c6bf 62%, #677c75 100%); box-shadow: 0 0 9px #ffffffa8; transform: translateZ(31px) rotateX(-59deg); }
-.ball-sphere.rolling { animation: ball-spin .24s linear infinite; }
-@keyframes ball-spin { to { rotate: 1turn; } }
-.stadium-front { position: absolute; bottom: 0; left: 54px; z-index: 4; display: flex; justify-content: space-around; align-items: center; width: 692px; height: 24px; border: 2px solid #849a96; color: #c9dec9; background: repeating-linear-gradient(90deg, #1c4551 0 20px, #224f58 20px 39px); box-shadow: 0 12px 0 #101c22; font: 700 11px var(--mono); letter-spacing: .18em; transform: translateZ(10px); }
-.stadium-hud { position: absolute; right: 20px; bottom: 14px; left: 20px; display: flex; justify-content: space-between; color: #a4bab2; font: 9px var(--mono); letter-spacing: .08em; pointer-events: none; }.stadium-hud span:first-child { color: var(--lime); }.stadium-hud i { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 8px var(--lime); }
+.pitch-3d { position: relative; height: 560px; max-height: none; aspect-ratio: auto; overflow: hidden; background: #142332; isolation: isolate; }
+.webgl-pitch { position: absolute; inset: 0; }
+.pitch-scene-loading { display: grid; place-items: center; color: #d7e3df; font: 11px var(--mono); }
+.webgl-pitch canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.webgl-pitch canvas:active { cursor: grabbing; }
+.webgl-pitch canvas:focus-visible { outline: 2px solid var(--lime); outline-offset: -3px; }
+.stadium-tools { position: absolute; top: 12px; right: 12px; left: 12px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; pointer-events: none; }
+.stadium-tools button { min-height: 30px; padding: 6px 9px; border: 1px solid #65798580; border-radius: 3px; color: #d1ddd9; background: #0a1922e8; font: 8px var(--mono); letter-spacing: .05em; cursor: pointer; pointer-events: auto; }
+.stadium-tools button[aria-pressed="true"] { color: var(--lime); border-color: #b5d58a99; }
+.stadium-tools button:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.stadium-hud { position: absolute; right: 15px; bottom: 28px; left: 15px; display: flex; justify-content: space-between; gap: 8px; padding: 5px 7px; border-radius: 3px; background: #0b1923bd; color: #d7e3df; font: 8px var(--mono); letter-spacing: .08em; pointer-events: none; text-shadow: 0 1px 4px #000; }
+.stadium-hud span:first-child { color: var(--lime); }
+.stadium-hud i { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--lime); }
+.stadium-disclosure { position: absolute; bottom: 12px; left: 15px; color: #adbfbb; font: 7px var(--mono); letter-spacing: .08em; pointer-events: none; text-shadow: 0 1px 4px #000; }
+.webgl-unavailable { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; padding: 30px; color: #d7e3df; background: #142332; text-align: center; }
+.webgl-unavailable span { color: #a8b9b4; font-size: 12px; }
 .pitch-view-controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; border-bottom: 1px solid #202c31; color: #8fa3a4; font: 8px var(--mono); letter-spacing: .08em; }
 .pitch-view-toggle { display: flex; gap: 4px; }
 .pitch-view-controls button, .pitch-view-controls select { min-height: 28px; padding: 0 9px; border: 1px solid #35464a; border-radius: 3px; color: #abbab8; background: #111e21; cursor: pointer; font: 9px var(--mono); }
@@ -314,6 +350,7 @@ h1 { margin-bottom: 7px; font: 600 30px/1.15 var(--display); letter-spacing: -1.
 @keyframes blink { 50% { opacity: .35; } }
 
 @media (max-width: 1100px) {
+  .live-layout.inspecting { grid-template-columns: minmax(0, 1fr) 340px; }
   .app-shell { padding: 0 26px; }
   .live-layout { grid-template-columns: minmax(0, 1fr) 285px; gap: 14px; }
   .live-main, .match-sidebar { gap: 14px; }
@@ -323,10 +360,11 @@ h1 { margin-bottom: 7px; font: 600 30px/1.15 var(--display); letter-spacing: -1.
 }
 
 @media (max-width: 820px) {
+  .live-layout.inspecting { grid-template-columns: 1fr; }
+  .inspecting .match-sidebar { grid-template-columns: 1fr; }
+  .evidence-inspector { max-height: none; }
+  .insight-shelf-heading > span { display: none; }
   .pitch-3d { height: 470px; }
-  .stadium-world { transform: translate(-50%, -50%) rotateX(59deg) rotateZ(calc(-4deg + var(--orbit))) scale(.72); }
-  .camera-sideline .stadium-world { transform: translate(-50%, -50%) rotateX(67deg) rotateZ(calc(-20deg + var(--orbit))) scale(.78); }
-  .camera-goal .stadium-world { transform: translate(-50%, -50%) rotateX(64deg) rotateZ(calc(-68deg + var(--orbit))) scale(.6); }
   .app-shell { padding: 0 18px; }
   .live-layout { grid-template-columns: 1fr; }
   .profile-views.split { grid-template-columns: 1fr; }
@@ -341,11 +379,12 @@ h1 { margin-bottom: 7px; font: 600 30px/1.15 var(--display); letter-spacing: -1.
 }
 
 @media (max-width: 560px) {
+  .insight-shelf { padding: 15px; }
+  .insight-shelf h2 { font-size: 18px; }
+  .insight-cards { grid-auto-columns: 86%; }
   .pitch-3d { height: 350px; }
-  .stadium-world { transform: translate(-50%, -50%) rotateX(59deg) rotateZ(calc(-4deg + var(--orbit))) scale(.48); }
-  .camera-sideline .stadium-world { transform: translate(-50%, -50%) rotateX(67deg) rotateZ(calc(-20deg + var(--orbit))) scale(.52); }
-  .camera-goal .stadium-world { transform: translate(-50%, -50%) rotateX(64deg) rotateZ(calc(-68deg + var(--orbit))) scale(.4); }
-  .stadium-hud { right: 8px; bottom: 8px; left: 8px; font-size: 6px; }
+  .pitch-view-controls { flex-wrap: wrap; gap: 8px; }
+  .stadium-hud { right: 8px; bottom: 28px; left: 8px; font-size: 7px; }
   body { min-width: 360px; }
   .app-shell { padding: 0 14px; }
   .topbar { height: 64px; }
