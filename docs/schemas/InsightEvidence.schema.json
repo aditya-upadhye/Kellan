@@ -1,0 +1,2136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InsightEvidence",
+  "$defs": {
+    "AgentTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "trace_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "moment_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent": {
+          "enum": [
+            "detector",
+            "explainer",
+            "fact_checker",
+            "personalizer",
+            "producer"
+          ],
+          "type": "string"
+        },
+        "action": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "approved",
+            "rejected",
+            "retry",
+            "fallback",
+            "error"
+          ],
+          "type": "string"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokens_in": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokens_out": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "detail": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "draft_text": {
+          "anyOf": [
+            {
+              "maxLength": 600,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "match_id",
+        "moment_id",
+        "agent",
+        "action",
+        "status",
+        "latency_ms",
+        "tokens_in",
+        "tokens_out",
+        "detail",
+        "draft_text",
+        "ts"
+      ],
+      "title": "AgentTrace",
+      "type": "object"
+    },
+    "BallOutEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "ball_out",
+          "type": "string"
+        },
+        "team_id": {
+          "anyOf": [
+            {
+              "enum": [
+                "home",
+                "away"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "player_id": {
+          "anyOf": [
+            {
+              "pattern": "^[ha]\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "BallOutEvent",
+      "type": "object"
+    },
+    "BallSample": {
+      "additionalProperties": false,
+      "description": "Authored synthetic ball movement within the preceding tracking second.",
+      "properties": {
+        "offset_ms": {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "height_m": {
+          "maximum": 12.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "action": {
+          "enum": [
+            "pass",
+            "carry",
+            "shot",
+            "hold"
+          ],
+          "type": "string"
+        },
+        "actor_id": {
+          "anyOf": [
+            {
+              "pattern": "^[ha]\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "progress": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "offset_ms",
+        "x",
+        "y",
+        "height_m",
+        "action",
+        "actor_id",
+        "event_id",
+        "progress"
+      ],
+      "title": "BallSample",
+      "type": "object"
+    },
+    "CardAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "CardAttrs",
+      "type": "object"
+    },
+    "CardEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "card",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "enum": [
+            "yellow",
+            "second_yellow",
+            "red"
+          ],
+          "type": "string"
+        },
+        "attrs": {
+          "$ref": "#/$defs/CardAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "CardEvent",
+      "type": "object"
+    },
+    "CarryAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "distance_m": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "distance_m"
+      ],
+      "title": "CarryAttrs",
+      "type": "object"
+    },
+    "CarryEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "carry",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "$ref": "#/$defs/Point"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/CarryAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "CarryEvent",
+      "type": "object"
+    },
+    "CheckError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "unknown_metric",
+            "value_mismatch",
+            "uncited_number",
+            "span_not_found",
+            "unsupported_claim",
+            "too_long"
+          ],
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "title": "CheckError",
+      "type": "object"
+    },
+    "CheckerResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "attempts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "passed",
+        "attempts",
+        "version"
+      ],
+      "title": "CheckerResult",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "text_span": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "metric_id": {
+          "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "as_of_seq": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claim_id",
+        "text_span",
+        "metric_id",
+        "value",
+        "as_of_seq"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/Claim"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recomputed_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recomputation": {
+          "enum": [
+            "matched",
+            "mismatch",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "scope_note": {
+          "type": "string"
+        },
+        "source_event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim",
+        "snapshot",
+        "recomputed_value",
+        "recomputation",
+        "method",
+        "scope_note",
+        "source_event_ids"
+      ],
+      "title": "ClaimEvidence",
+      "type": "object"
+    },
+    "CueProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "metric_ids": {
+          "items": {
+            "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checker": {
+          "$ref": "#/$defs/CheckerResult"
+        },
+        "model_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "metric_ids",
+        "checker",
+        "model_ids"
+      ],
+      "title": "CueProvenance",
+      "type": "object"
+    },
+    "DuelAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "opponent_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "opponent_id"
+      ],
+      "title": "DuelAttrs",
+      "type": "object"
+    },
+    "DuelEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "duel",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "enum": [
+            "won",
+            "lost"
+          ],
+          "type": "string"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DuelAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "DuelEvent",
+      "type": "object"
+    },
+    "EvidenceReplay": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "end": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/TrackingFrame"
+          },
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "ball_out": "#/$defs/BallOutEvent",
+                "card": "#/$defs/CardEvent",
+                "carry": "#/$defs/CarryEvent",
+                "duel": "#/$defs/DuelEvent",
+                "foul": "#/$defs/FoulEvent",
+                "goal": "#/$defs/GoalEvent",
+                "interception": "#/$defs/InterceptionEvent",
+                "kickoff": "#/$defs/KickoffEvent",
+                "match_end": "#/$defs/MatchEndEvent",
+                "pass": "#/$defs/PassEvent",
+                "period_end": "#/$defs/PeriodEndEvent",
+                "possession_change": "#/$defs/PossessionChangeEvent",
+                "pressure": "#/$defs/PressureEvent",
+                "shot": "#/$defs/ShotEvent",
+                "substitution": "#/$defs/SubstitutionEvent",
+                "tackle": "#/$defs/TackleEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/KickoffEvent"
+              },
+              {
+                "$ref": "#/$defs/PassEvent"
+              },
+              {
+                "$ref": "#/$defs/CarryEvent"
+              },
+              {
+                "$ref": "#/$defs/ShotEvent"
+              },
+              {
+                "$ref": "#/$defs/TackleEvent"
+              },
+              {
+                "$ref": "#/$defs/InterceptionEvent"
+              },
+              {
+                "$ref": "#/$defs/PressureEvent"
+              },
+              {
+                "$ref": "#/$defs/DuelEvent"
+              },
+              {
+                "$ref": "#/$defs/FoulEvent"
+              },
+              {
+                "$ref": "#/$defs/CardEvent"
+              },
+              {
+                "$ref": "#/$defs/SubstitutionEvent"
+              },
+              {
+                "$ref": "#/$defs/GoalEvent"
+              },
+              {
+                "$ref": "#/$defs/PossessionChangeEvent"
+              },
+              {
+                "$ref": "#/$defs/BallOutEvent"
+              },
+              {
+                "$ref": "#/$defs/PeriodEndEvent"
+              },
+              {
+                "$ref": "#/$defs/MatchEndEvent"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "frames",
+        "events",
+        "note"
+      ],
+      "title": "EvidenceReplay",
+      "type": "object"
+    },
+    "EvidenceVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "cue": {
+          "$ref": "#/$defs/OverlayCue"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/ClaimEvidence"
+          },
+          "type": "array"
+        },
+        "numeric_check_passed": {
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/CheckError"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cue",
+        "claims",
+        "numeric_check_passed",
+        "errors"
+      ],
+      "title": "EvidenceVersion",
+      "type": "object"
+    },
+    "FoulAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "fouled_player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fouled_player_id"
+      ],
+      "title": "FoulAttrs",
+      "type": "object"
+    },
+    "FoulEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "foul",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/FoulAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "FoulEvent",
+      "type": "object"
+    },
+    "GoalAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "scorer_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "assist_id": {
+          "anyOf": [
+            {
+              "pattern": "^[ha]\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shot_event_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scorer_id",
+        "assist_id",
+        "shot_event_id"
+      ],
+      "title": "GoalAttrs",
+      "type": "object"
+    },
+    "GoalEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "goal",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/GoalAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "GoalEvent",
+      "type": "object"
+    },
+    "InterceptionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "interception",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "InterceptionEvent",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "KickoffEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "kickoff",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "KickoffEvent",
+      "type": "object"
+    },
+    "MatchClock": {
+      "additionalProperties": false,
+      "properties": {
+        "period": {
+          "enum": [
+            1,
+            2
+          ],
+          "type": "integer"
+        },
+        "ms": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "period",
+        "ms"
+      ],
+      "title": "MatchClock",
+      "type": "object"
+    },
+    "MatchEndEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "match_end",
+          "type": "string"
+        },
+        "team_id": {
+          "type": "null"
+        },
+        "player_id": {
+          "type": "null"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "MatchEndEvent",
+      "type": "object"
+    },
+    "MetricSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "metric_id": {
+          "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "match",
+            "team",
+            "player",
+            "event"
+          ],
+          "type": "string"
+        },
+        "subject_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "label": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "",
+            "count",
+            "%",
+            "km/h",
+            "m",
+            "xG",
+            "ratio",
+            "index"
+          ],
+          "type": "string"
+        },
+        "window": {
+          "enum": [
+            "match",
+            "last_5m",
+            "last_10m"
+          ],
+          "type": "string"
+        },
+        "as_of_seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        }
+      },
+      "required": [
+        "metric_id",
+        "scope",
+        "subject_id",
+        "label",
+        "value",
+        "unit",
+        "window",
+        "as_of_seq",
+        "clock"
+      ],
+      "title": "MetricSnapshot",
+      "type": "object"
+    },
+    "Moment": {
+      "additionalProperties": false,
+      "properties": {
+        "moment_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "goal",
+            "big_chance",
+            "card",
+            "momentum_swing",
+            "press_shift",
+            "control_shift",
+            "milestone",
+            "speed_alert",
+            "player_spotlight"
+          ],
+          "type": "string"
+        },
+        "seq_start": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "seq_end": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "rule_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "significance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "evidence_metric_ids": {
+          "items": {
+            "pattern": "^(match|team|player|event)(\\.[A-Za-z0-9_-]+)+$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "subject_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "source": {
+          "enum": [
+            "rule",
+            "agent",
+            "fallback"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "moment_id",
+        "match_id",
+        "type",
+        "seq_start",
+        "seq_end",
+        "clock",
+        "rule_score",
+        "significance",
+        "evidence_metric_ids",
+        "subject_ids",
+        "source"
+      ],
+      "title": "Moment",
+      "type": "object"
+    },
+    "NoAttrs": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "NoAttrs",
+      "type": "object"
+    },
+    "OverlayCue": {
+      "additionalProperties": false,
+      "properties": {
+        "cue_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "insight_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "trigger_seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "template": {
+          "enum": [
+            "stat_bar",
+            "player_tag",
+            "moment_card",
+            "momentum_graph",
+            "speed_badge",
+            "recap_panel"
+          ],
+          "type": "string"
+        },
+        "slot": {
+          "enum": [
+            "lower_third",
+            "top_right",
+            "side_panel",
+            "full_screen"
+          ],
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start_delay_ms": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "duration_ms": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "headline": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "es"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        "provenance": {
+          "$ref": "#/$defs/CueProvenance"
+        }
+      },
+      "required": [
+        "cue_id",
+        "match_id",
+        "profile_id",
+        "insight_id",
+        "trigger_seq",
+        "clock",
+        "template",
+        "slot",
+        "priority",
+        "start_delay_ms",
+        "duration_ms",
+        "expires_at",
+        "headline",
+        "body",
+        "language",
+        "data",
+        "provenance"
+      ],
+      "title": "OverlayCue",
+      "type": "object"
+    },
+    "PassAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "receiver_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "length_m": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "height": {
+          "enum": [
+            "ground",
+            "low",
+            "high"
+          ],
+          "type": "string"
+        },
+        "under_pressure": {
+          "type": "boolean"
+        },
+        "ball_speed_kmh": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "receiver_id",
+        "length_m",
+        "height",
+        "under_pressure",
+        "ball_speed_kmh"
+      ],
+      "title": "PassAttrs",
+      "type": "object"
+    },
+    "PassEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "pass",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "$ref": "#/$defs/Point"
+        },
+        "outcome": {
+          "enum": [
+            "complete",
+            "incomplete",
+            "out",
+            "offside"
+          ],
+          "type": "string"
+        },
+        "attrs": {
+          "$ref": "#/$defs/PassAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "PassEvent",
+      "type": "object"
+    },
+    "PeriodEndEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "period_end",
+          "type": "string"
+        },
+        "team_id": {
+          "type": "null"
+        },
+        "player_id": {
+          "type": "null"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "PeriodEndEvent",
+      "type": "object"
+    },
+    "PlayerPos": {
+      "additionalProperties": false,
+      "properties": {
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "speed_kmh": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "player_id",
+        "x",
+        "y",
+        "speed_kmh"
+      ],
+      "title": "PlayerPos",
+      "type": "object"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "PossessionChangeEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "possession_change",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "type": "null"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/NoAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "PossessionChangeEvent",
+      "type": "object"
+    },
+    "PressureAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "target_player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_player_id"
+      ],
+      "title": "PressureAttrs",
+      "type": "object"
+    },
+    "PressureEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "pressure",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/PressureAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "PressureEvent",
+      "type": "object"
+    },
+    "ShotAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "body_part": {
+          "enum": [
+            "foot",
+            "head"
+          ],
+          "type": "string"
+        },
+        "shot_speed_kmh": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "situation": {
+          "enum": [
+            "open_play",
+            "set_piece",
+            "penalty"
+          ],
+          "type": "string"
+        },
+        "assist_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "body_part",
+        "shot_speed_kmh",
+        "situation",
+        "assist_event_id"
+      ],
+      "title": "ShotAttrs",
+      "type": "object"
+    },
+    "ShotEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "shot",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "goal",
+            "saved",
+            "blocked",
+            "off_target",
+            "woodwork"
+          ],
+          "type": "string"
+        },
+        "attrs": {
+          "$ref": "#/$defs/ShotAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "ShotEvent",
+      "type": "object"
+    },
+    "SubstitutionAttrs": {
+      "additionalProperties": false,
+      "properties": {
+        "player_in_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "player_out_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "player_in_id",
+        "player_out_id"
+      ],
+      "title": "SubstitutionAttrs",
+      "type": "object"
+    },
+    "SubstitutionEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "substitution",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "type": "null"
+        },
+        "location": {
+          "type": "null"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "type": "null"
+        },
+        "attrs": {
+          "$ref": "#/$defs/SubstitutionAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "SubstitutionEvent",
+      "type": "object"
+    },
+    "TackleEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "type": {
+          "const": "tackle",
+          "type": "string"
+        },
+        "team_id": {
+          "enum": [
+            "home",
+            "away"
+          ],
+          "type": "string"
+        },
+        "player_id": {
+          "pattern": "^[ha]\\d{2}$",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/Point"
+        },
+        "end_location": {
+          "type": "null"
+        },
+        "outcome": {
+          "enum": [
+            "won",
+            "lost"
+          ],
+          "type": "string"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DuelAttrs"
+        }
+      },
+      "required": [
+        "event_id",
+        "match_id",
+        "seq",
+        "clock",
+        "type",
+        "team_id",
+        "player_id",
+        "location",
+        "end_location",
+        "outcome",
+        "attrs"
+      ],
+      "title": "TackleEvent",
+      "type": "object"
+    },
+    "TrackingFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "match_id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "frame_seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "clock": {
+          "$ref": "#/$defs/MatchClock"
+        },
+        "ball": {
+          "$ref": "#/$defs/Point"
+        },
+        "ball_speed_kmh": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/PlayerPos"
+          },
+          "type": "array"
+        },
+        "ball_trajectory": {
+          "items": {
+            "$ref": "#/$defs/BallSample"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "match_id",
+        "frame_seq",
+        "clock",
+        "ball",
+        "ball_speed_kmh",
+        "players",
+        "ball_trajectory"
+      ],
+      "title": "TrackingFrame",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "evidence_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "insight_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "match_id": {
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "type": "string"
+    },
+    "moment": {
+      "$ref": "#/$defs/Moment"
+    },
+    "versions": {
+      "items": {
+        "$ref": "#/$defs/EvidenceVersion"
+      },
+      "type": "array"
+    },
+    "replay": {
+      "$ref": "#/$defs/EvidenceReplay"
+    },
+    "traces": {
+      "items": {
+        "$ref": "#/$defs/AgentTrace"
+      },
+      "type": "array"
+    },
+    "interpretation_note": {
+      "type": "string"
+    },
+    "replay_duration_ms": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "insight_id",
+    "match_id",
+    "moment",
+    "versions",
+    "replay",
+    "traces",
+    "interpretation_note",
+    "replay_duration_ms"
+  ],
+  "type": "object"
+}

@@ -2,6 +2,79 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TrackingFrame",
   "$defs": {
+    "BallSample": {
+      "additionalProperties": false,
+      "description": "Authored synthetic ball movement within the preceding tracking second.",
+      "properties": {
+        "offset_ms": {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "height_m": {
+          "maximum": 12.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "action": {
+          "enum": [
+            "pass",
+            "carry",
+            "shot",
+            "hold"
+          ],
+          "type": "string"
+        },
+        "actor_id": {
+          "anyOf": [
+            {
+              "pattern": "^[ha]\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "progress": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "offset_ms",
+        "x",
+        "y",
+        "height_m",
+        "action",
+        "actor_id",
+        "event_id",
+        "progress"
+      ],
+      "title": "BallSample",
+      "type": "object"
+    },
     "MatchClock": {
       "additionalProperties": false,
       "properties": {
@@ -102,6 +175,12 @@
         "$ref": "#/$defs/PlayerPos"
       },
       "type": "array"
+    },
+    "ball_trajectory": {
+      "items": {
+        "$ref": "#/$defs/BallSample"
+      },
+      "type": "array"
     }
   },
   "required": [
@@ -110,7 +189,8 @@
     "clock",
     "ball",
     "ball_speed_kmh",
-    "players"
+    "players",
+    "ball_trajectory"
   ],
   "type": "object"
 }

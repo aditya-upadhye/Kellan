@@ -3,10 +3,23 @@
 Kellan turns a synthetic football event stream into fact-checked, personalized on-screen insights. It gives producers a live story-integrity layer: each insight is grounded in event evidence, checked before publication, and revised when the match facts change.
 Code computes every number, agents write every sentence, and a Fact-Checker agent checks that they agree.
 
-**No evidence, no airtime.**
+**Show me the play behind the words.**
 
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in Kellan is fictional: league, clubs, players and venues are invented.
+
+## Hero feature: Show me why
+
+Every published insight stays in the story shelf after its overlay expires. Select **SHOW ME WHY** to inspect the evidence behind that exact version:
+
+- Select an underlined numeric phrase to compare its saved metric with a fresh computation from historical event and tracking inputs.
+- Replay the preceding 20 seconds at 1x in the 3D pitch. Select an event to seek to it; gold marks identify source events, teal marks provide context.
+- Switch between published audience and language versions without losing the replay position or evidence reference.
+- Inspect the agent decisions, including rejected drafts and verifier errors, while the match continues live.
+
+Evidence is pinned when the insight is generated. Later tracking updates and match events cannot enter its inspection. The short replay provides context; full-match and rolling metrics are recomputed over their actual input window. Numeric verification does not establish tactical causation. Missing input history is reported as unavailable.
+
+The endpoint is `GET /api/matches/{match_id}/insights/{insight_id}/evidence`. Only published insights are available; evidence remains in memory for the lifetime of that match session. See [the judge walkthrough](docs/hero-demo.md) for a short demonstration.
 
 > **Status:** M1–M7 are complete; M8 Azure deployment is in progress on `m8-azure`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
@@ -115,7 +128,11 @@ npm --prefix frontend run dev
 
 Open the Vite URL shown in the frontend terminal. Choose a scenario and playback speed, then kick off a match. The browser connects to the local API for the live score, tracking view, metrics, event feed and match controls. No Azure resources or LLM credentials are required.
 
-The live pitch opens in a CSS 3D stadium with spectator stands, floodlights, a scoreboard, player figures, and a moving ball driven by the synthetic tracking feed. Drag to orbit the scene, use **3D VIEW / 2D VIEW** to switch perspectives, choose a broadcast, sideline or goal-end camera, and select **REPLAY LAST 15s** to inspect recent player and ball movement while the live match continues. The replay uses received tracking frames; it does not simulate an alternative outcome. Broadcast cues are hidden over replay frames so their live timing cannot be mistaken for replay evidence.
+The live pitch opens in a Three.js WebGL stadium with modeled footballers, articulated running animations, textured turf, goal nets, spectator stands, floodlights, and dynamic shadows. Drag or use a touch gesture to orbit, scroll or pinch to zoom, and choose a broadcast, sideline or goal-end camera. **FOLLOW BALL**, **PLAYER NUMBERS**, and **RESET CAMERA** control the view. Use **3D VIEW / 2D VIEW** to switch perspectives; the 2D view also works on devices without WebGL 2.
+
+Players turn towards their movement and look towards the ball, with distance-driven strides, planted supporting feet, knee bends, arm swings and acceleration in the underlying simulation. Synthetic players anticipate their next involvement, move to receive passes, follow carries and react to shots. Passing and shooting poses follow the ball's authored contacts. Tracking is sampled at 1 Hz, with subsecond ball trajectory samples that preserve exact synthetic departures and arrivals. Lofted passes and shots have synthetic height; the UI does not infer it from flat coordinates. Dead balls stay stationary until their restart. Halftime, replay seeks and tracking gaps reset interpolation instead of animating a run across the pitch.
+
+Select **REPLAY LAST 15s** to inspect the last 15 received tracking frames while the match continues live. Replay runs at 1x so pass contacts and player movement remain readable even when the live match is accelerated. Broadcast cues are hidden over replay frames so their live timing cannot be mistaken for replay evidence. All stadium and player assets are generated locally; the 3D engine loads separately from the initial application.
 
 To run the full stack with Docker instead:
 

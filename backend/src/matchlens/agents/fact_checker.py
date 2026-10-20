@@ -131,7 +131,13 @@ class FactCheckerAgent:
         claims = list(draft.claims)
         claim = claims[index]
         claims[index] = claim.model_copy(update={"value": claim.value + 1.0})
-        self._record(moment, "inject", "ok", f"claim={claim.claim_id}")
+        self._record(
+            moment,
+            "inject",
+            "ok",
+            f"claim={claim.claim_id}; declared {claim.value:g} -> {claim.value + 1:g}; "
+            f"cited span '{claim.text_span}'",
+        )
         return draft.model_copy(update={"claims": claims})
 
     async def _fallback(self, moment: Moment, attempts: int) -> Insight:

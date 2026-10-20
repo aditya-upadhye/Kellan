@@ -4,10 +4,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from matchlens.agents.live import LiveAgentWorkflow
 from matchlens.agents.workflow import MomentResult, WorkflowServices, insight_workflow
 from matchlens.config import LLMMode
 from matchlens.llm.runtime import RuntimeLLMClient
 from matchlens.profiles import DEFAULT_PROFILES
+from matchlens.store.memory import MemoryMetricStore
 from support.agent_workflow import goal_work, metadata, settings
 
 if TYPE_CHECKING:
@@ -109,5 +111,25 @@ def test_switching_llm_off_and_call_budget_preserve_verified_fallbacks() -> None
         guard = next(trace for trace in traces if trace.action == "cost_guard")
         assert guard.status == "fallback"
         assert "MAX_LLM_CALLS_PER_MATCH=1" in guard.detail
+
+    asyncio.run(run())
+
+
+def test_live_generation_retains_the_exact_evidence_view_for_inspection() -> None:
+    async def run() -> None:
+        work = await goal_work()
+        workflow = LiveAgentWorkflow(
+            metadata(), DEFAULT_PROFILES, settings(), MemoryMetricStore(), lambda _: None
+        )
+        try:
+            # Exercise archive retention independently of the live scheduling clock.
+            result = await workflow._generate(work)  # pyright: ignore[reportPrivateUsage]
+            assert result is not None
+            anchor = workflow.evidence[result.insight.insight_id]
+            assert anchor.moment == work.moment
+            assert anchor.insight == result.insight
+            assert anchor.store is work.store
+        finally:
+            await workflow.close()
 
     asyncio.run(run())
