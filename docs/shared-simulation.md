@@ -2,7 +2,9 @@
 
 ## Data flow
 
-`MatchEngine` chooses an intention (carry, pass, shot or restart). `MatchWorld` advances players and ball together in steps of at most 50 ms. The match director emits pass and shot outcomes after the physical contact or boundary crossing resolves. `simulate_match` returns events and frames recorded from this same world. The older `TrackingBuilder` remains a compatibility helper; it is not used by the default generator.
+`MatchEngine` chooses an intention (carry, pass, shot or restart). `MatchWorld` advances players and ball together: flights use steps of at most 50 ms, ordinary movement 100 ms and dead-ball settling 250 ms. Swept contacts resolve movement within each step. The match director emits pass and shot outcomes after the physical contact or boundary crossing resolves. `simulate_match` returns events and frames recorded from this same world. The older `TrackingBuilder` remains a compatibility helper; it is not used by the default generator.
+
+Live matches use `stream_match`: a worker generates inputs progressively into a queue capped at 64 items. Paused or slower playback fills the queue and blocks generation. The worker retains only its latest frame; received history remains available in the match session for rewind and evidence. One clock instant is buffered to publish events before frames at that instant, including restart placement updates. Closing the stream stops and joins the worker. The offline CLI still computes and saves a complete fixture.
 
 ## Movement and contacts
 
@@ -12,6 +14,7 @@
 - Ground passes decelerate. Lofted balls use gravity, lose energy on bounces and settle into rolling motion.
 - Swept ball contacts use relative player movement. The earliest reachable player contact or pitch boundary wins, reducing tunnelling between steps. Height permits real aerial clearance.
 - Solid player discs use swept relative movement and contact impulses, with iterative overlap repair and anticipatory steering. Teams share the same collision rules. A crowded solver step holds unresolved displacement instead of advancing through bodies.
+- Restart takers and retreating players steer around the stationary ball. The contact solver allows longer contact chains to converge, preventing a blocked retreat from freezing a kickoff. A regression reproduces the crowded midfield position from balanced seed 29.
 - Ball/body volumes include every player, including nonreceiving teammates and the kicker. Physical contact is separate from receiving/goalkeeper reach. Carries also check bodies; a teammate who actually receives a pass becomes its recorded receiver. A teammate can block a shot.
 - A received pass, interception, outfield shot block, goalkeeper save or goal-line crossing determines the recorded outcome. Goalkeepers can catch reachable shots; this is a simplified reach model.
 - Substitutions update the active bodies and introduce the replacement from the touchline. Half-time resets and explicit restart placements are marked discontinuities, not cross-pitch ball flights.
@@ -32,7 +35,9 @@ Additional frames participate in the metrics stream and evidence recomputation. 
 
 This is an original lightweight football model, not a professional football game engine. Tactical decisions, offside, player separation, goalkeeper reach, rebound ownership and restarts are approximations. Some non-contact scenario events such as scripted disciplinary incidents remain director-controlled. Scripted attacks encourage attacking decisions; they no longer manufacture possession changes or bypass physical ball contacts. Exact seeded scores and scripted timing can change from previous versions.
 
-A full 90-minute fixture is generated before playback begins, so startup has a CPU and memory cost. Swept player contacts and recording all players increase generation, stream and rewind-memory costs compared with the earlier near-ball-only preview. There is no fresh performance benchmark for these collision changes. CPU generation and browser GPU rendering require separate review on the deployed service. Colliders approximate bodies with upright volumes, rather than matching every animated limb triangle.
+Playback starts before the full fixture is generated. Regression tests require the first live input within five seconds and check bounded buffering, shutdown and parity with offline generation. This is a startup budget, not a claim that a complete match can be computed in five seconds. Swept player contacts and recording all players still increase generation, stream and rewind-memory costs compared with the earlier preview. CPU generation and browser GPU rendering require separate review on the deployed service. Colliders approximate bodies with upright volumes, rather than matching every animated limb triangle.
+
+The full-match statistical and workload checks are expensive. Property checks for stream coherence and coordinate bounds use short two-period fixtures while retaining their generated seed examples. Full-match invariants, player workload and the 50-seed statistical sweep still simulate complete matches. Workload uses distance per 90 minutes, accounting for added time; its 7-13 km target is unchanged. The sweep reports per-seed totals, possession, red cards and the longest event gap so a stalled restart cannot disappear inside an average.
 
 The implementation was informed by reading PitchLens's fixed-step/contact-driven approach, without importing its code or character assets. Kellan retains its own world model, orbitable scene, deterministic metric recomputation and Microsoft Agent Framework publication workflow.
 

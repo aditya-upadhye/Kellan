@@ -4,6 +4,15 @@ All notable changes are recorded here, one section per milestone tag.
 
 ## [Unreleased] - M8 Azure deployment
 
+### Progressive kickoff and regression fixes
+
+- Generate live matches progressively through a bounded 64-input queue. Playback pauses apply backpressure; closing a match stops its generation worker. Retain received footage for rewind without a second full fixture in the worker.
+- Preserve event/frame ordering at the same clock instant, including rewritten restart frames. Keep full offline fixture generation available through the CLI.
+- Record a blocked pass recovered by its kicker as incomplete instead of an invalid self-pass. Keep squad rendering compatible with metadata that omits players.
+- Repair collision deadlocks at pitch boundaries, stale kickoff restrictions and first-touch gathering. Report speed from resolved displacement and actual frame intervals.
+- Fix a post-goal kickoff deadlock reproduced from balanced seed 29: retreating players avoid the stationary ball, and crowded contact chains receive more solver iterations. Add the exact midfield configuration as a regression.
+- Add focused contact, stream startup, cancellation, ordering/parity and rewind regressions. Statistical calibration still uses all 50 seeds and the existing realism bounds.
+
 ### Body collisions
 
 - Replaced soft overlap nudges with swept player-disc collisions, normal contact impulses, iterative overlap repair and steering around nearby bodies. Unresolved crowded steps hold remaining movement.

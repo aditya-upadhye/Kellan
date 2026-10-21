@@ -4,12 +4,18 @@ The match director chooses intentions. This world resolves their movement;
 events and recorded playback both read the resulting state.
 """
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from matchlens.models.base import TeamSide
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from matchlens.models.base import TeamSide
+    from matchlens.sim.squad import TeamState
 from matchlens.models.clock import MatchClock
 from matchlens.models.pitch import Point
 from matchlens.models.tracking import BallSample, PlayerPos, TrackingFrame
@@ -24,7 +30,6 @@ from matchlens.sim.space import (
     opponent,
     to_attacking_frame,
 )
-from matchlens.sim.squad import TeamState
 
 STEP_MS = 50
 GRAVITY = 9.81
@@ -80,6 +85,7 @@ class MatchWorld:
         self.owner_id: str | None = None
         self.side: TeamSide = "home"
         self.controlled = False
+        self.gathering = False
         self.dead_ball = False
         self.resetting = False
         self.carry_target: Spot | None = None
@@ -88,11 +94,15 @@ class MatchWorld:
         self.face_target: Spot | None = None
         self.flight: Flight | None = None
         self.contact: Contact | None = None
+        self.control_contact: Contact | None = None
         self.preparing: Literal["pass", "shot"] | None = None
         self._preparation_ms = 0
         self._last_contact: tuple[int, Contact] | None = None
         self.bodies: dict[str, Body] = {}
         self.frames: list[TrackingFrame] = []
+        self.on_frame: Callable[[TrackingFrame], None] | None = None
+        self.retain_history = True
+        self._frame_sequence = 0
         self._targets: dict[str, Spot] = {}
         self._next_targets = 0
         self._samples: list[BallSample] = []
@@ -100,13 +110,16 @@ class MatchWorld:
         self._next_frame = 0
         self._frame_start_ms = 0
         self._previous_ball = CENTRE_SPOT
+        self._previous_players: dict[str, Spot] = {}
         self._placed_since_frame = False
         self._settle_speed: float = 0.0
         self._body_steps: list[tuple[float, dict[str, Spot]]] = []
 
     def start_period(self, period: Period) -> None:
+        self.gathering = False
         self.period, self.ms = period, 0
         self.flight, self.contact = None, None
+        self.control_contact = None
         self.preparing = None
         self._last_contact = None
         self.carry_target = self.face_target = None
@@ -129,6 +142,7 @@ class MatchWorld:
         self._samples, self._paths = [], {}
         self._next_frame, self._next_targets = 0, 0
         self._frame_start_ms = 0
+        self._previous_players = {}
         self._separate(0.0)
 
     def positions(self, side: TeamSide) -> dict[str, Spot]:
@@ -150,6 +164,11 @@ class MatchWorld:
         self.invalidate_targets()
 
     def place(self, spot: Spot) -> None:
+        self.gathering = False
+        self.control_contact = None
+        self.preparing = None
+        self.receive_target = None
+        self.restart_side = None
         changed = self.ball.distance_to(spot) > 0.01
         if self.record and self._samples and self.ms > self._frame_start_ms and changed:
             self._sample_ball(max(0, self.ms - self._frame_start_ms - 1))
@@ -184,6 +203,8 @@ class MatchWorld:
                     "ball_trajectory": old_path,
                 }
             )
+            if self.on_frame is not None:
+                self.on_frame(self.frames[-1])
             self._samples = []
             self._sample_ball(0)
 
@@ -232,7 +253,14 @@ class MatchWorld:
         if target is None:
             return True
         desired = math.atan2(target.x - body.spot.x, target.y - body.spot.y)
-        return abs(_angle(desired - body.heading)) < 0.18
+        return abs(_angle(self._field_heading(body, desired) - body.heading)) < 0.18
+
+    @staticmethod
+    def _field_heading(body: Body, heading: float) -> float:
+        # The controlling foot must stay on the pitch, outside the body.
+        foot_x = min(105.0 - CONTROL_OFFSET, max(CONTROL_OFFSET, body.spot.x + math.sin(heading)))
+        foot_y = min(68.0 - CONTROL_OFFSET, max(CONTROL_OFFSET, body.spot.y + math.cos(heading)))
+        return math.atan2(foot_x - body.spot.x, foot_y - body.spot.y)
 
     def launch(  # noqa: PLR0913 - explicit physical launch parameters
         self,
@@ -250,7 +278,7 @@ class MatchWorld:
             vertical = 0.0
         elif action == "pass":
             vertical = math.sqrt(2 * GRAVITY * apex)
-            speed = distance / max(0.3, 2 * vertical / GRAVITY)
+            speed = min(30.0, distance / max(0.3, 2 * vertical / GRAVITY))
         else:
             seconds = distance / max(1.0, speed)
             vertical = (target_height - self.height) / seconds + GRAVITY * seconds / 2
@@ -271,6 +299,7 @@ class MatchWorld:
             self.ms,
         )
         self.flight, self.contact, self.controlled = flight, None, False
+        self.gathering = False
         self.receive_target = None
         self.restart_side = None
         self.preparing = None
@@ -296,7 +325,10 @@ class MatchWorld:
             raise ValueError("world period was not initialized")
         end = start_ms + duration_ms
         while self.ms < end:
-            step = min(STEP_MS, end - self.ms, 250 - self.ms % 250)
+            # Swept body contacts support longer movement/settling intervals;
+            # ball flights retain 50 ms gravity integration.
+            maximum = STEP_MS if self.flight is not None else 250 if self.dead_ball else 100
+            step = min(maximum, end - self.ms, 250 - self.ms % 250)
             if self.record and self._next_frame > self.ms:
                 step = min(step, self._next_frame - self.ms)
             old = {key: body.spot for key, body in self.bodies.items()}
@@ -313,6 +345,8 @@ class MatchWorld:
                 self._settle_speed = self._settle_speed - GRAVITY * dt if self.height > 0 else 0.0
             if self.record:
                 for fraction, positions in self._body_steps:
+                    if fraction <= 0:
+                        continue
                     offset = self.ms - self._frame_start_ms + round(fraction * step)
                     self._sample_players(offset, positions)
             self.ms += step
@@ -353,7 +387,7 @@ class MatchWorld:
                 self.carry_target
                 if self.controlled and self.carry_target is not None
                 else self.bodies[self.owner_id].spot
-                if self.controlled
+                if self.controlled or self.gathering
                 else clamp_to_pitch(
                     Spot(
                         self.ball.x - math.sin(self.bodies[self.owner_id].heading) * CONTROL_OFFSET,
@@ -377,7 +411,10 @@ class MatchWorld:
                 continue
             right = attacks_right(opponent(self.side), self.period)
             local = to_attacking_frame(self.ball, attacking_right=right)
-            target = Spot(local.x - (0.6 if index == 0 else 5.0), local.y + (3 if index else 0))
+            # Jockey at tackling distance. Targeting the centre of the ball
+            # made two solid bodies contest the same point every update,
+            # producing perpetual possession changes instead of football.
+            target = Spot(local.x - (1.6 if index == 0 else 5.0), local.y + (3 if index else 0))
             self._targets[player.player_id] = clamp_to_pitch(
                 from_attacking_frame(target, attacking_right=right)
             )
@@ -405,7 +442,13 @@ class MatchWorld:
                     maximum = 5.0
                 if self.dead_ball:
                     maximum = 2.8
-                speed = min(maximum, gap * 2.2)
+                # Supporting players adjust their shape rather than sprinting
+                # after every small ball displacement. Receivers/carriers keep
+                # the sharper response needed for an actual touch.
+                involved = player.player_id == self.owner_id or (
+                    self.flight is not None and player.player_id == self.flight.receiver_id
+                )
+                speed = min(maximum, gap * (2.2 if involved else 0.9))
                 desired = Spot(dx / gap * speed, dy / gap * speed) if gap > 0.01 else Spot(0.0, 0.0)
                 desired = self._avoid_bodies(player.player_id, desired)
                 acceleration = Spot(desired.x - body.velocity.x, desired.y - body.velocity.y)
@@ -416,17 +459,28 @@ class MatchWorld:
                     body.velocity.y + acceleration.y * scale,
                 )
                 desired_heading = body.heading
-                if player.player_id == self.owner_id and self.face_target is not None:
-                    desired_heading = math.atan2(
-                        self.face_target.x - body.spot.x, self.face_target.y - body.spot.y
+                if player.player_id == self.owner_id:
+                    desired_heading = (
+                        math.atan2(
+                            self.face_target.x - body.spot.x, self.face_target.y - body.spot.y
+                        )
+                        if self.face_target is not None
+                        else math.pi / 2
+                        if attacks_right(self.side, self.period)
+                        else -math.pi / 2
                     )
+                    desired_heading = self._field_heading(body, desired_heading)
                 elif math.hypot(*body.velocity) > 0.15:
                     desired_heading = math.atan2(body.velocity.x, body.velocity.y)
                 turn = _angle(desired_heading - body.heading)
                 body.heading = _angle(body.heading + max(-4.5 * dt, min(4.5 * dt, turn)))
         self._advance_bodies(dt)
         self._separate(dt)
-        self._body_steps.append((1.0, {key: body.spot for key, body in self.bodies.items()}))
+        final = (1.0, {key: body.spot for key, body in self.bodies.items()})
+        if self._body_steps[-1][0] == 1.0:
+            self._body_steps[-1] = final
+        else:
+            self._body_steps.append(final)
 
     def _avoid_bodies(self, player_id: str, desired: Spot) -> Spot:
         speed = math.hypot(*desired)
@@ -435,6 +489,31 @@ class MatchWorld:
         body = self.bodies[player_id]
         ux, uy = desired.x / speed, desired.y / speed
         adjustment = 0.0
+        if (
+            player_id != self.owner_id
+            and self.flight is None
+            and (self.controlled or self.gathering)
+            and any(player.player_id == player_id for player in self.teams[self.side].on_pitch())
+        ):
+            # Supporting teammates make room for the carrier's feet rather
+            # than repeatedly colliding with their own team's controlled ball.
+            dx, dy = self.ball.x - body.spot.x, self.ball.y - body.spot.y
+            ahead, lateral = dx * ux + dy * uy, dx * uy - dy * ux
+            if 0 < ahead < 2.8 and abs(lateral) < BALL_BODY_GAP + 0.5:
+                adjustment = max(adjustment, (1 - ahead / 2.8) * min(speed, 3.5))
+        if (
+            (player_id == self.owner_id and not self.controlled)
+            or self.dead_ball
+            or self.restart_side is not None
+        ):
+            # To receive on the other side of a stationary ball, walk around
+            # its solid volume instead of repeatedly pushing into it. Players
+            # retreating at a restart need the same steering: a stationary
+            # football must not trap them on the wrong side of the pitch.
+            dx, dy = self.ball.x - body.spot.x, self.ball.y - body.spot.y
+            ahead, lateral = dx * ux + dy * uy, dx * uy - dy * ux
+            if 0 < ahead < 2.8 and abs(lateral) < BALL_BODY_GAP + 0.2:
+                adjustment = max(adjustment, (1 - ahead / 2.8) * min(speed, 2.5))
         for other_id, other in self.bodies.items():
             if other_id == player_id:
                 continue
@@ -449,7 +528,7 @@ class MatchWorld:
     def _advance_bodies(self, dt: float) -> None:
         remaining, elapsed = dt, 0.0
         self._body_steps = [(0.0, {key: body.spot for key, body in self.bodies.items()})]
-        for _ in range(24):
+        for _ in range(64):
             ends = {
                 key: clamp_to_pitch(
                     Spot(
@@ -459,11 +538,19 @@ class MatchWorld:
                 )
                 for key, body in self.bodies.items()
             }
+            for key, body in self.bodies.items():
+                # Resolve with the displacement the pitch boundary permits.
+                # An outward requested velocity at a wall is not motion and
+                # must not cancel the impulse of a player approaching it.
+                body.velocity = Spot(
+                    (ends[key].x - body.spot.x) / remaining, (ends[key].y - body.spot.y) / remaining
+                )
             hit: tuple[float, str, str | None] | None = None
             items = list(self.bodies.items())
-            for index, (key, body) in enumerate(items):
+            for key, body in items:
                 if (
-                    self.flight is None
+                    (self.dead_ball or self.restart_side is not None)
+                    and self.flight is None
                     and self.height < BODY_HEIGHT
                     and not (key == self.owner_id and self.controlled)
                 ):
@@ -472,27 +559,20 @@ class MatchWorld:
                     )
                     if fraction is not None and (hit is None or fraction < hit[0]):
                         hit = fraction, key, None
-                for other_key, other in items[:index]:
-                    # Cheap broad phase before solving relative swept discs.
-                    reach = BODY_GAP + remaining * (
-                        math.hypot(*body.velocity) + math.hypot(*other.velocity)
-                    )
-                    if (
-                        abs(body.spot.x - other.spot.x) > reach
-                        or abs(body.spot.y - other.spot.y) > reach
-                    ):
-                        continue
-                    fraction = _approaching_sweep(
-                        body.spot, ends[key], other.spot, ends[other_key], BODY_GAP
-                    )
-                    if fraction is not None and (hit is None or fraction < hit[0]):
-                        hit = fraction, key, other_key
+            for key, other_key in self._body_candidates(ends):
+                body, other = self.bodies[key], self.bodies[other_key]
+                fraction = _approaching_sweep(
+                    body.spot, ends[key], other.spot, ends[other_key], BODY_GAP
+                )
+                if fraction is not None and (hit is None or fraction < hit[0]):
+                    hit = fraction, key, other_key
             fraction = hit[0] if hit else 1.0
             for key, body in items:
                 body.spot = body.spot.toward(ends[key], fraction)
             elapsed += remaining * fraction
             remaining *= 1 - fraction
-            self._body_steps.append((elapsed / dt, {key: body.spot for key, body in items}))
+            if fraction > 0:
+                self._body_steps.append((elapsed / dt, {key: body.spot for key, body in items}))
             if hit is None:
                 return
             body = self.bodies[hit[1]]
@@ -505,16 +585,44 @@ class MatchWorld:
                 body.velocity.y - (other.velocity.y if other else 0),
             )
             closing = min(0.0, relative.x * nx + relative.y * ny)
-            impulse = -closing / (2 if other else 1)
-            body.velocity = Spot(body.velocity.x + nx * impulse, body.velocity.y + ny * impulse)
+            inverse = 0.0 if _wall_blocks(body.spot, nx, ny) else 1.0
+            other_inverse = 0.0 if other is None or _wall_blocks(other.spot, -nx, -ny) else 1.0
+            impulse = -closing / max(1.0, inverse + other_inverse)
+            body.velocity = Spot(
+                body.velocity.x + nx * impulse * inverse, body.velocity.y + ny * impulse * inverse
+            )
             if other is not None and hit[2] is not None:
                 other.velocity = Spot(
-                    other.velocity.x - nx * impulse, other.velocity.y - ny * impulse
+                    other.velocity.x - nx * impulse * other_inverse,
+                    other.velocity.y - ny * impulse * other_inverse,
                 )
             if remaining < 1e-6:
                 return
         # A crowded contact chain may exhaust the iteration budget. Holding
         # the remaining displacement is safe; advancing unchecked is not.
+
+    def _body_candidates(self, ends: dict[str, Spot]) -> list[tuple[str, str]]:
+        cells: dict[tuple[int, int], list[str]] = {}
+        pairs: list[tuple[str, str]] = []
+        radius = BODY_GAP / 2
+        for key, body in self.bodies.items():
+            end = ends[key]
+            seen: set[str] = set()
+            for x in range(
+                math.floor((min(body.spot.x, end.x) - radius) / 2),
+                math.floor((max(body.spot.x, end.x) + radius) / 2) + 1,
+            ):
+                for y in range(
+                    math.floor((min(body.spot.y, end.y) - radius) / 2),
+                    math.floor((max(body.spot.y, end.y) + radius) / 2) + 1,
+                ):
+                    bucket = cells.setdefault((x, y), [])
+                    for other in bucket:
+                        if other not in seen:
+                            pairs.append((key, other))
+                            seen.add(other)
+                    bucket.append(key)
+        return pairs
 
     def _separate(self, dt: float) -> None:
         del dt
@@ -551,6 +659,11 @@ class MatchWorld:
         return changed
 
     def _control_ball(self, dt: float, old_players: dict[str, Spot]) -> None:
+        if self.restart_side is not None and any(
+            self.bodies[player.player_id].spot.distance_to(self.ball) < 9.0
+            for player in self.teams[opponent(self.restart_side)].on_pitch()
+        ):
+            return
         body = self.bodies.get(self.owner_id or "")
         if body is None:
             return
@@ -560,20 +673,97 @@ class MatchWorld:
                 body.spot.y + math.cos(body.heading) * CONTROL_OFFSET,
             )
         )
-        gap = self.ball.distance_to(foot)
-        if not self.controlled and gap > 1.1:
-            return
-        # A first touch draws the ball into control over time, not a teleport.
-        target = self.ball.toward(foot, min(1.0, 9.0 * dt / max(0.001, gap)))
+        gather = self.controlled or self.gathering or body.spot.distance_to(self.ball) < 1.05
+        self.gathering = gather and not self.controlled
+        target = self.ball
+        if gather:
+            # Bring a first touch around the body envelope, not through it.
+            angle = math.atan2(self.ball.x - body.spot.x, self.ball.y - body.spot.y)
+            turn = _angle(body.heading - angle)
+            angle += max(-3 * dt, min(3 * dt, turn))
+            radius = body.spot.distance_to(self.ball)
+            radius += max(-9 * dt, min(9 * dt, CONTROL_OFFSET - radius))
+            radius = max(BALL_BODY_GAP + 0.002, radius)
+            target = clamp_to_pitch(
+                Spot(body.spot.x + math.sin(angle) * radius, body.spot.y + math.cos(angle) * radius)
+            )
         hits = self._step_ball_contacts(self.ball, target, 0.0, 0.0, old_players, flight=False)
-        fraction = min((hit[0] for hit in hits), default=1.0)
+        fraction, contacted = min(hits, key=lambda hit: hit[0]) if hits else (1.0, None)
         self.ball = self.ball.toward(target, fraction)
-        if fraction < 1.0:
-            self._stop_bodies_at(fraction)
+        if contacted is not None:
+            # A football yields to a player's body; it is not an immovable
+            # obstacle that freezes every player's remaining displacement.
+            contact_body = old_players.get(contacted, self.bodies[contacted].spot).toward(
+                self.bodies[contacted].spot, fraction
+            )
+            normal = Spot(self.ball.x - contact_body.x, self.ball.y - contact_body.y)
+            length = max(1e-9, math.hypot(*normal))
+            self.ball = clamp_to_pitch(
+                Spot(
+                    self.bodies[contacted].spot.x + normal.x / length * (BALL_BODY_GAP + 0.002),
+                    self.bodies[contacted].spot.y + normal.y / length * (BALL_BODY_GAP + 0.002),
+                )
+            )
+            for _ in range(4):
+                changed = False
+                for key, other in self.bodies.items():
+                    distance = other.spot.distance_to(self.ball)
+                    if distance >= BALL_BODY_GAP - 1e-6:
+                        continue
+                    dx, dy = self.ball.x - other.spot.x, self.ball.y - other.spot.y
+                    ux, uy = (dx / distance, dy / distance) if distance > 1e-9 else (1.0, 0.0)
+                    self.ball = clamp_to_pitch(
+                        Spot(
+                            other.spot.x + ux * (BALL_BODY_GAP + 0.002),
+                            other.spot.y + uy * (BALL_BODY_GAP + 0.002),
+                        )
+                    )
+                    contacted, changed = key, True
+                if not changed:
+                    break
+            if any(
+                other.spot.distance_to(self.ball) < BALL_BODY_GAP - 1e-6
+                for other in self.bodies.values()
+            ):
+                # A ball cannot fit in a body-to-body gap narrower than its
+                # diameter. Eject it to the closest free side of the contact
+                # manifold rather than oscillating between two penetrations.
+                centre = self.bodies[contacted].spot
+                candidates = [
+                    clamp_to_pitch(
+                        Spot(
+                            centre.x + math.cos(i * math.tau / 32) * (BALL_BODY_GAP + 0.04),
+                            centre.y + math.sin(i * math.tau / 32) * (BALL_BODY_GAP + 0.04),
+                        )
+                    )
+                    for i in range(32)
+                ]
+                free = [
+                    point
+                    for point in candidates
+                    if all(
+                        other.spot.distance_to(point) >= BALL_BODY_GAP
+                        for other in self.bodies.values()
+                    )
+                ]
+                if free:
+                    self.ball = min(free, key=self.ball.distance_to)
+            if contacted != self.owner_id:
+                self.control_contact = Contact("intercepted", self.ball, contacted)
+                self.owner_id = contacted
+                self.side = (
+                    "home"
+                    if any(
+                        player.player_id == contacted for player in self.teams["home"].on_pitch()
+                    )
+                    else "away"
+                )
+                self.carry_target = self.face_target = None
+                self.gathering = False
         self.height = 0.0
-        self.controlled = self.ball.distance_to(foot) < 0.08
-        if fraction < 1.0 and self.record:
-            self._sample_ball(self.ms - self._frame_start_ms + round(dt * 1000 * fraction))
+        self.controlled = contacted in (None, self.owner_id) and self.ball.distance_to(foot) < 0.08
+        if self.controlled:
+            self.gathering = False
 
     def _move_ball(self, dt: float, old_players: dict[str, Spot]) -> None:
         flight = self.flight
@@ -652,7 +842,7 @@ class MatchWorld:
                 catching = player.is_goalkeeper and side != flight.side and flight.action == "shot"
                 if not receiving and not catching:
                     continue
-                radius = 1.1 if receiving else 1.2
+                radius = 1.35 if receiving else 1.6
                 previous = old_players.get(player.player_id, body.spot)
                 a = Spot(before.x - previous.x, before.y - previous.y)
                 end_spot = (new_players or {}).get(player.player_id, body.spot)
@@ -784,9 +974,8 @@ class MatchWorld:
 
     def _capture(self) -> None:
         self._sample_ball(self.ms - self._frame_start_ms)
-        # Keep all movement knots, including away from the ball: endpoint
-        # interpolation can cut straight through a legitimate avoidance turn.
-        self._sample_players(self.ms - self._frame_start_ms)
+        # Movement/contact knots were recorded during integration, including
+        # away from the ball. Do not duplicate their final sample here.
         if self.ms == self._next_frame or self.contact is not None:
             self._write_frame()
         if self.ms == self._next_frame:
@@ -853,14 +1042,23 @@ class MatchWorld:
                 player_id=player_id,
                 x=round(body.spot.x, 3),
                 y=round(body.spot.y, 3),
-                speed_kmh=round(math.hypot(*body.velocity) * 3.6, 2),
+                speed_kmh=round(
+                    body.spot.distance_to(self._previous_players.get(player_id, body.spot))
+                    * 3.6
+                    * 1000
+                    / (self.ms - self._frame_start_ms)
+                    if self.ms > self._frame_start_ms
+                    else 0.0,
+                    2,
+                ),
             )
             for player_id, body in self.bodies.items()
         ]
+        self._frame_sequence += 1
         self.frames.append(
             TrackingFrame(
                 match_id=self.match_id,
-                frame_seq=len(self.frames) + 1,
+                frame_seq=self._frame_sequence,
                 interval_ms=self.ms - self._frame_start_ms,
                 clock=MatchClock(period=self.period, ms=self.ms),
                 ball=Point(x=round(self.ball.x, 3), y=round(self.ball.y, 3)),
@@ -870,7 +1068,12 @@ class MatchWorld:
                 player_trajectories=self._paths,
             )
         )
+        if not self.retain_history:
+            self.frames = self.frames[-1:]
+        if self.on_frame is not None:
+            self.on_frame(self.frames[-1])
         self._previous_ball = self.ball
+        self._previous_players = {key: body.spot for key, body in self.bodies.items()}
         self._frame_start_ms = self.ms
         self._placed_since_frame = False
         self._samples, self._paths = [], {}
@@ -904,9 +1107,18 @@ def _approaching_sweep(
     relative = Spot(start.x - other_start.x, start.y - other_start.y)
     finish = Spot(end.x - other_end.x, end.y - other_end.y)
     closing = relative.x * (finish.x - relative.x) + relative.y * (finish.y - relative.y)
-    if closing >= -1e-9:
+    if closing >= -1e-7:
         return None
     return _sweep(relative, finish, radius)
+
+
+def _wall_blocks(spot: Spot, nx: float, ny: float) -> bool:
+    return (
+        (spot.x <= 1e-6 and nx < 0)
+        or (spot.x >= 105 - 1e-6 and nx > 0)
+        or (spot.y <= 1e-6 and ny < 0)
+        or (spot.y >= 68 - 1e-6 and ny > 0)
+    )
 
 
 def _sweep_volume(

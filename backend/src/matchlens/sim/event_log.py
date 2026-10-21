@@ -18,6 +18,9 @@ class EventLog:
         self.period: Period = 1
         self.ms = 0
         self.on_advance: Callable[[Period, int, int], None] | None = None
+        self.on_event: Callable[[MatchEvent], None] | None = None
+        self.retain_history = True
+        self._sequence = 0
 
     @property
     def events(self) -> list[MatchEvent]:
@@ -37,7 +40,8 @@ class EventLog:
         self.ms += duration_ms
 
     def emit[EventT: MatchEvent](self, event_type: type[EventT], **fields: Any) -> EventT:
-        seq = len(self._events) + 1
+        self._sequence += 1
+        seq = self._sequence
         event = event_type(
             event_id=format_event_id(self._match_id, seq),
             match_id=self._match_id,
@@ -45,5 +49,8 @@ class EventLog:
             clock=self.clock,
             **fields,
         )
-        self._events.append(event)
+        if self.retain_history:
+            self._events.append(event)
+        if self.on_event is not None:
+            self.on_event(event)
         return event

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Self
 
+from matchlens.config import get_settings
 from matchlens.models.base import TeamSide
 from matchlens.models.events import (
     CardEvent,
@@ -12,6 +14,17 @@ from matchlens.models.events import (
     PossessionChangeEvent,
     ShotEvent,
 )
+from matchlens.sim.match import simulate_scenario
+from matchlens.sim.scenarios import load_scenario
+from matchlens.world.meridian import MERIDIAN_LEAGUE
+
+
+def balanced_summary(seed: int) -> "MatchSummary":
+    """Independent seeded fixture, also callable in a test worker process."""
+    scenario = load_scenario("balanced", get_settings().scenarios_dir)
+    return MatchSummary.of(
+        simulate_scenario(MERIDIAN_LEAGUE, scenario, seed, with_tracking=False).events
+    )
 
 
 def possession_shares(events: list[MatchEvent]) -> dict[TeamSide, float]:
@@ -41,6 +54,8 @@ class MatchSummary:
     fouls: int
     yellow_cards: int
     home_possession_pct: float
+    red_cards: int = 0
+    longest_event_gap_ms: int = 0
 
     @classmethod
     def of(cls, events: list[MatchEvent]) -> Self:
@@ -59,4 +74,16 @@ class MatchSummary:
             fouls=sum(isinstance(event, FoulEvent) for event in events),
             yellow_cards=len(cautions),
             home_possession_pct=possession_shares(events)["home"],
+            red_cards=sum(
+                isinstance(event, CardEvent) and event.outcome in ("red", "second_yellow")
+                for event in events
+            ),
+            longest_event_gap_ms=max(
+                (
+                    later.clock.ms - earlier.clock.ms
+                    for earlier, later in pairwise(events)
+                    if earlier.clock.period == later.clock.period
+                ),
+                default=0,
+            ),
         )

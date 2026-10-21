@@ -2,6 +2,7 @@ import asyncio
 import uuid
 from collections import OrderedDict, deque
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 from dataclasses import dataclass, field
 from time import monotonic
 from typing import Literal, cast
@@ -22,8 +23,9 @@ from matchlens.models.profiles import ViewerProfile
 from matchlens.models.traces import AgentTrace
 from matchlens.models.tracking import TrackingFrame
 from matchlens.profiles import DEFAULT_PROFILES, get_profile
-from matchlens.sim.match import SimulatedMatch, build_scenario_metadata, simulate_match
+from matchlens.sim.match import build_scenario_metadata
 from matchlens.sim.scenarios import Injection, UnknownScenarioError, load_scenario
+from matchlens.sim.stream import stream_match
 from matchlens.store.memory import MemoryMetricStore
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
@@ -260,12 +262,6 @@ class MatchManager:
 
     async def _run(self, session: MatchSession, injections: list[Injection]) -> None:
         try:
-            match = await asyncio.to_thread(
-                simulate_match,
-                session.metadata,
-                with_tracking=True,
-                script=injections,
-            )
             session.state = "running"
             await session.publish(_status(session))
             engine = MetricsEngine(session.metadata.match_id)
@@ -280,33 +276,36 @@ class MatchManager:
                 session.workflow.set_fault_injection(True)
                 session.fault_inject_requested = False
             previous: tuple[int, int] | None = None
-            for item in _ordered_inputs(match):
-                await session.resume_gate.wait()
-                stamp = (item.clock.period, item.clock.ms)
-                if session.speed != "max" and previous is not None:
-                    delta = (stamp[0] - previous[0]) * 45 * 60_000 + stamp[1] - previous[1]
-                    if delta > 0:
-                        await asyncio.sleep(delta / (1000 * session.speed))
-                await session.resume_gate.wait()
-                await self._wait_for_insights(session, item.clock)
-                previous = stamp
-                session.clock = {"period": item.clock.period, "ms": item.clock.ms}
-                if isinstance(item, TrackingFrame):
-                    session.frames.append(item)
-                    snapshots = engine.consume_frame(item)
-                    message = StreamEnvelope(
-                        kind="frame", match_id=item.match_id, data=item.model_dump(mode="json")
+            async with aclosing(stream_match(session.metadata, script=injections)) as inputs:
+                async for item in inputs:
+                    await session.resume_gate.wait()
+                    stamp = (item.clock.period, item.clock.ms)
+                    if session.speed != "max" and previous is not None:
+                        delta = (stamp[0] - previous[0]) * 45 * 60_000 + stamp[1] - previous[1]
+                        if delta > 0:
+                            await asyncio.sleep(delta / (1000 * session.speed))
+                    await session.resume_gate.wait()
+                    await self._wait_for_insights(session, item.clock)
+                    previous = stamp
+                    session.clock = {"period": item.clock.period, "ms": item.clock.ms}
+                    if isinstance(item, TrackingFrame):
+                        session.frames.append(item)
+                        snapshots = engine.consume_frame(item)
+                        message = StreamEnvelope(
+                            kind="frame", match_id=item.match_id, data=item.model_dump(mode="json")
+                        )
+                    else:
+                        session.events.append(item)
+                        snapshots = engine.consume_event(cast("MatchEvent", item))
+                        message = StreamEnvelope(
+                            kind="event", match_id=item.match_id, data=item.model_dump(mode="json")
+                        )
+                    await session.publish(message)
+                    if snapshots:
+                        await self._save_snapshots(session, snapshots)
+                    await session.workflow.consume(
+                        cast("MatchEvent | TrackingFrame", item), snapshots
                     )
-                else:
-                    session.events.append(item)
-                    snapshots = engine.consume_event(cast("MatchEvent", item))
-                    message = StreamEnvelope(
-                        kind="event", match_id=item.match_id, data=item.model_dump(mode="json")
-                    )
-                await session.publish(message)
-                if snapshots:
-                    await self._save_snapshots(session, snapshots)
-                await session.workflow.consume(cast("MatchEvent | TrackingFrame", item), snapshots)
             await session.workflow.finish()
             session.state = "complete"
             await session.publish(_status(session))
@@ -397,17 +396,6 @@ def _set_fault_injection(session: MatchSession, value: object) -> None:
         session.workflow.set_fault_injection(value)
     else:
         session.fault_inject_requested = value
-
-
-def _ordered_inputs(match: SimulatedMatch) -> list[BaseEvent | TrackingFrame]:
-    return sorted(
-        [*match.events, *match.frames],
-        key=lambda item: (
-            item.clock.period,
-            item.clock.ms,
-            1 if isinstance(item, TrackingFrame) else 0,
-        ),
-    )
 
 
 def _status(session: MatchSession) -> StreamEnvelope:

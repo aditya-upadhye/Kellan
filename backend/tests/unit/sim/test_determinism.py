@@ -1,6 +1,5 @@
 import filecmp
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -14,7 +13,6 @@ from matchlens.sim.scenarios import load_scenario
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 MATCH_FILES = (METADATA_FILE, EVENTS_FILE, FRAMES_FILE)
-GENERATION_BUDGET_S = 5.0
 
 
 def identical(first: Path, second: Path, names: tuple[str, ...]) -> bool:
@@ -64,10 +62,5 @@ def test_different_seeds_play_different_matches() -> None:
     assert first.events != second.events
 
 
-@pytest.mark.slow
-def test_full_match_with_tracking_generates_within_budget(tmp_path: Path) -> None:
-    output = run_sim_cli(tmp_path, "--scenario", "late_comeback", "--seed", "3")
-
-    reported = re.search(r"generated in (\d+\.\d+) s", output)
-    assert reported is not None, output
-    assert float(reported.group(1)) < GENERATION_BUDGET_S
+# Live startup is measured in test_stream: first input within five seconds.
+# The offline CLI still computes the complete fixture and reports its duration.
