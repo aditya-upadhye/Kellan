@@ -21,17 +21,25 @@ class BallSample(Contract):
     x: float = Field(ge=0.0, le=PITCH_LENGTH_M)
     y: float = Field(ge=0.0, le=PITCH_WIDTH_M)
     height_m: float = Field(ge=0.0, le=12.0)
-    action: Literal["pass", "carry", "shot", "hold"] = "hold"
+    action: Literal["pass", "carry", "shot", "hold", "receive", "block", "save"] = "hold"
     actor_id: PlayerId | None = None
     event_id: str | None = None
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
+    preparing: bool = False
 
 
 class TrackingFrame(Contract):
     match_id: Identifier
     frame_seq: int = Field(ge=1)
+    interval_ms: int = Field(default=1000, ge=0, le=1000)
     clock: MatchClock
     ball: Point
     ball_speed_kmh: float = Field(ge=0.0)
     players: list[PlayerPos]
     ball_trajectory: list[BallSample] = Field(default_factory=list[BallSample])
+    # offset_ms, pitch x/y and facing radians, recorded by the shared world.
+    # Every player includes integration/contact knots, so interpolation cannot
+    # shortcut a collision-avoidance path between regular frame endpoints.
+    player_trajectories: dict[str, list[tuple[int, float, float, float]]] = Field(
+        default_factory=dict
+    )

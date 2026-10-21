@@ -25,9 +25,21 @@ export function isDiscontinuity(previous: TrackingFrame | null, next: TrackingFr
 
 export const zero: Position = { x: 0, y: 0 }
 
-export function sampleBallPath(path: BallSample[], t: number): BallSample | null {
+export function samplePlayerPath(path: [number, number, number, number][], t: number, durationMs = 1000): (Position & { facing: number }) | null {
   if (!path.length) return null
-  const time = Math.max(0, Math.min(1, t)) * 1000
+  const time = Math.max(0, Math.min(1, t)) * durationMs
+  let index = 0
+  while (index + 1 < path.length && path[index + 1][0] <= time) index++
+  const before = path[index], after = path[index + 1]
+  if (!after) return { x: before[1], y: before[2], facing: before[3] }
+  const blend = Math.max(0, Math.min(1, (time - before[0]) / Math.max(1, after[0] - before[0])))
+  const turn = Math.atan2(Math.sin(after[3] - before[3]), Math.cos(after[3] - before[3]))
+  return { x: before[1] + (after[1] - before[1]) * blend, y: before[2] + (after[2] - before[2]) * blend, facing: before[3] + turn * blend }
+}
+
+export function sampleBallPath(path: BallSample[], t: number, durationMs = 1000): BallSample | null {
+  if (!path.length) return null
+  const time = Math.max(0, Math.min(1, t)) * durationMs
   let index = 0
   while (index + 1 < path.length && path[index + 1].offset_ms <= time) index++
   const before = path[index], after = path[index + 1]
@@ -36,12 +48,22 @@ export function sampleBallPath(path: BallSample[], t: number): BallSample | null
   // A restart is an explicit placement, never a pass across the field.
   if (span <= 1) return before
   const blend = Math.max(0, Math.min(1, (time - before.offset_ms) / span))
+  const sameFlight = before.event_id !== null && before.event_id === after.event_id
+  const progress = sameFlight ? before.progress + (after.progress - before.progress) * blend : before.progress
+  let height = before.height_m + (after.height_m - before.height_m) * blend
+  // The feed authors a parabolic flight. Reconstruct that arc within a sample
+  // interval so crosses don't change vertical velocity at every 250 ms knot.
+  if (sameFlight && (before.action === 'pass' || before.action === 'shot')) {
+    const reference = before.height_m > 0 && before.progress > 0 && before.progress < 1 ? before : after
+    const denominator = 4 * reference.progress * (1 - reference.progress)
+    if (reference.height_m > 0 && denominator > .0001) height = reference.height_m / denominator * 4 * progress * (1 - progress)
+  }
   return {
     ...before,
     offset_ms: time,
     x: before.x + (after.x - before.x) * blend,
     y: before.y + (after.y - before.y) * blend,
-    height_m: before.height_m + (after.height_m - before.height_m) * blend,
-    progress: before.event_id === after.event_id ? before.progress + (after.progress - before.progress) * blend : before.progress,
+    height_m: height,
+    progress,
   }
 }

@@ -21,6 +21,7 @@ from matchlens.agents.workflow import (
     insight_workflow,
     selection_workflow,
 )
+from matchlens.config import LLMMode
 from matchlens.llm.runtime import RuntimeLLMClient
 from matchlens.models.clock import MatchClock
 from matchlens.models.cues import Recap
@@ -74,6 +75,8 @@ class LiveAgentWorkflow:
         self._contexts: dict[str, MomentWork] = {}
         self._candidates: dict[str, Moment] = {}
         self._selection_lock = asyncio.Lock()
+        self._reviewing: tuple[Moment, ...] = ()
+        self._playback_progress = asyncio.Event()
         self._delivery_condition = asyncio.Condition()
         self._profile_sources: dict[str, dict[str, RecapSource]] = {
             profile.profile_id: {} for profile in profiles
@@ -149,8 +152,16 @@ class LiveAgentWorkflow:
                 return
 
     async def _select(self, request: DetectionRequest) -> None:
-        async with self._selection_lock:
+        if request.critical:
+            # Critical rule triggers must not queue behind a slow model review.
             result = await selection_workflow(self._detector).run(request)
+        else:
+            async with self._selection_lock:
+                self._reviewing = tuple(request.candidates)
+                try:
+                    result = await selection_workflow(self._detector).run(request)
+                finally:
+                    self._reviewing = ()
         for output in result.get_outputs():
             if not isinstance(output, SelectedMoments):
                 raise TypeError("unexpected Detector workflow output")
@@ -197,8 +208,27 @@ class LiveAgentWorkflow:
             if self._stale(work.moment):
                 return None
             try:
-                async with asyncio.timeout(12):
-                    result = await insight_workflow(self._services).run(work)
+                try:
+                    async with asyncio.timeout(
+                        self._services.settings.insight_generation_timeout_seconds
+                    ):
+                        result = await insight_workflow(self._services).run(work)
+                except TimeoutError:
+                    self._trace(
+                        work.moment.moment_id,
+                        "workflow",
+                        "fallback",
+                        "generation budget exhausted; using verified templates",
+                    )
+                    # A local fallback has its own client; do not switch other
+                    # moments or future model calls off for the whole match.
+                    fallback_client = RuntimeLLMClient(
+                        self._services.settings.model_copy(update={"llm_mode": LLMMode.OFF}),
+                        self._record_trace,
+                    )
+                    result = await insight_workflow(
+                        replace(self._services, client=fallback_client)
+                    ).run(replace(work, fault_inject_rate=0.0))
                 outputs = result.get_outputs()
                 if len(outputs) != 1 or not isinstance(outputs[0], MomentResult):
                     raise TypeError("unexpected insight workflow output")
@@ -208,7 +238,9 @@ class LiveAgentWorkflow:
                 )
                 return result
             except Exception as error:
-                self._trace(work.moment.moment_id, "workflow", "error", type(error).__name__)
+                self._trace(
+                    work.moment.moment_id, "workflow", "error", f"{type(error).__name__}: {error}"
+                )
                 return None
 
     async def _deliver(self) -> None:
@@ -254,7 +286,9 @@ class LiveAgentWorkflow:
             await self._select(
                 DetectionRequest(candidates, elapsed, flush=True, through_seq=through_seq)
             )
-            async with asyncio.timeout(10):
+            async with asyncio.timeout(
+                self._services.settings.insight_generation_timeout_seconds + 1
+            ):
                 async with self._delivery_condition:
                     await self._delivery_condition.wait_for(
                         lambda: (
@@ -282,6 +316,11 @@ class LiveAgentWorkflow:
             self._services.settings.strong_model or "mock-strong",
             self._match_id,
             self._record_trace,
+            request_timeout_seconds=(
+                self._services.settings.llm_request_timeout_seconds
+                * self._services.settings.llm_request_attempts
+                + 2
+            ),
         )
         results = await asyncio.gather(
             *(
@@ -319,6 +358,7 @@ class LiveAgentWorkflow:
             for moment, task in tuple(self._inflight.values()):
                 if self._stale(moment) and not task.done():
                     task.cancel()
+            self._playback_progress.set()
 
     def _schedule(self, result: ScheduleResult) -> None:
         for cue in result.preempted:
@@ -352,6 +392,31 @@ class LiveAgentWorkflow:
 
     def _stale(self, moment: Moment) -> bool:
         return self._timeline.elapsed(self._clock) - self._timeline.elapsed(moment.clock) >= 60_000
+
+    def playback_blocked_at(self, clock: MatchClock) -> bool:
+        """Keep accelerated replay from outrunning in-progress story evidence.
+
+        Leave 15 simulated seconds for scheduling before the existing one-minute
+        freshness cutoff. The cutoff and immutable evidence remain unchanged.
+        """
+        if self._closed or self.client.mode is not LLMMode.FOUNDRY:
+            return False
+        next_elapsed = self._timeline.elapsed(clock)
+        clocks = [
+            *(moment.clock for moment in self._reviewing),
+            *(moment.clock for moment, _ in self._inflight.values()),
+            *self._scheduler.pending_clocks,
+        ]
+        return any(next_elapsed - self._timeline.elapsed(item) >= 45_000 for item in clocks)
+
+    async def wait_for_playback(self, clock: MatchClock) -> None:
+        # Model/workflow timeouts bound this wait. Scheduling continues on the
+        # wall-clock ticker, and pause/stop controls stay responsive.
+        while True:
+            self._playback_progress.clear()
+            if not self.playback_blocked_at(clock):
+                return
+            await self._playback_progress.wait()
 
     def _discard_stale_contexts(self) -> None:
         self._contexts = {
@@ -401,6 +466,7 @@ class LiveAgentWorkflow:
         if self._closed:
             return
         self._closed = True
+        self._playback_progress.set()
         tasks = [
             self._detector_task,
             self._delivery_task,

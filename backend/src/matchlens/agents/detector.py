@@ -135,6 +135,20 @@ class DetectorAgent:
                 span.set_attribute("matchlens.emitted_count", len(emitted))
                 return emitted
 
+            if (
+                self._last_noncritical_ms is not None
+                and elapsed_ms - self._last_noncritical_ms < NONCRITICAL_INTERVAL_MS
+            ):
+                # No noncritical story can air in this interval. Rank/defer by
+                # rule evidence without spending a model call on suppressed copy.
+                emitted = self._limit_noncritical(
+                    pending, elapsed_ms, include_deferred=include_deferred
+                )
+                self._record_pacing(pending, emitted)
+                span.set_attribute("matchlens.model_skipped", "pacing cap")
+                span.set_attribute("matchlens.emitted_count", len(emitted))
+                return emitted
+
             started = time.perf_counter()
             response: DetectorResponse | None = None
             fallback_reason = ""
@@ -143,7 +157,7 @@ class DetectorAgent:
                 reviewed = self._apply_decisions(pending, response)
             except Exception as error:
                 response = None
-                fallback_reason = type(error).__name__
+                fallback_reason = f"{type(error).__name__}: {error}"[:200]
                 reviewed = _fallback(pending)
                 span.set_attribute("matchlens.fallback_reason", fallback_reason)
             latency_ms = round((time.perf_counter() - started) * 1000)
@@ -228,11 +242,20 @@ class DetectorAgent:
             separators=(",", ":"),
             sort_keys=True,
         )
+        schema = DetectorResponse.model_json_schema()
+        candidate_ids = [candidate.moment_id for candidate in candidates]
+        # Constrain identifiers and row count before generation, while retaining
+        # the deterministic duplicate/completeness checks after generation.
+        schema["$defs"]["DetectorDecision"]["properties"]["moment_id"]["enum"] = candidate_ids
+        schema["properties"]["decisions"].update(
+            {"minItems": len(candidates), "maxItems": len(candidates)}
+        )
+        schema["properties"]["merge_groups"]["items"]["items"]["enum"] = candidate_ids
         payload = await self._client.complete_json(
             "detector",
             _system_prompt(),
             user,
-            DetectorResponse.model_json_schema(),
+            schema,
             self._fast_model,
             match_id=candidates[0].match_id,
         )
@@ -240,7 +263,13 @@ class DetectorAgent:
         expected = {candidate.moment_id for candidate in candidates}
         actual = [decision.moment_id for decision in result.decisions]
         if len(actual) != len(set(actual)) or set(actual) != expected:
-            raise ValueError("detector must return exactly one decision per candidate")
+            missing = sorted(expected - set(actual))
+            unknown = sorted(set(actual) - expected)
+            raise ValueError(
+                "detector must return exactly one decision per candidate; "
+                f"expected={len(expected)}, received={len(actual)}, "
+                f"unique={len(set(actual))}, missing={missing}, unknown={unknown}"
+            )
         return result
 
     def _apply_decisions(

@@ -355,7 +355,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'EVENTHUBS_NAME', value: matchEvents.name }
             { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
-            { name: 'JUDGE_MODE', value: 'true' }
+            { name: 'JUDGE_MODE', value: 'false' }
             { name: 'MAX_CONCURRENT_MATCHES', value: '2' }
             { name: 'MAX_LLM_CALLS_PER_MATCH', value: '400' }
             { name: 'MAX_MATCH_STARTS_PER_IP_PER_HOUR', value: '3' }

@@ -48,6 +48,24 @@ class ProducerScheduler:
     _timeline: MatchTimeline = field(default_factory=MatchTimeline)
     _last_sequence: dict[str, int] = field(default_factory=dict[str, int])
     _now_wall_ms: int | None = None
+    _now_elapsed_ms: int = 0
+
+    @property
+    def pending_clocks(self) -> tuple[MatchClock, ...]:
+        # Only wall-clock display contention should hold back playback. A cue
+        # waiting for a future simulated eligibility time needs playback to
+        # advance; blocking on it would deadlock the scheduler.
+        return tuple(
+            pending.cue.clock
+            for pending in self._pending
+            if pending.critical
+            or max(
+                self._elapsed(pending.cue.clock),
+                self._last_non_critical.get(pending.cue.profile_id, -NON_CRITICAL_GAP_MS)
+                + NON_CRITICAL_GAP_MS,
+            )
+            <= self._now_elapsed_ms
+        )
 
     def offer(
         self, cue: OverlayCue, moment_type: str, now: MatchClock, wall_ms: int
@@ -91,6 +109,7 @@ class ProducerScheduler:
         if self._now_wall_ms is not None and wall_ms < self._now_wall_ms:
             raise ValueError("producer wall clock cannot move backwards")
         elapsed = self._timeline.advance(now)
+        self._now_elapsed_ms = elapsed
         self._now_wall_ms = wall_ms
         expired: list[OverlayCue] = []
         for key, active in list(self._active.items()):

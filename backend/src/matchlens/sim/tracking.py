@@ -1,5 +1,5 @@
 import math
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from random import Random
 
@@ -11,6 +11,7 @@ from matchlens.models.events import (
     CarryEvent,
     DuelEvent,
     FoulEvent,
+    GoalEvent,
     InterceptionEvent,
     KickoffEvent,
     MatchEvent,
@@ -23,6 +24,7 @@ from matchlens.models.events import (
 from matchlens.models.match import MatchMetadata
 from matchlens.models.pitch import PITCH_LENGTH_M, PITCH_WIDTH_M, Point
 from matchlens.models.tracking import BallSample, PlayerPos, TrackingFrame
+from matchlens.sim.lanes import pass_apex
 from matchlens.sim.shape import opponent_defensive_line, team_shape
 from matchlens.sim.space import (
     CENTRE_SPOT,
@@ -49,7 +51,7 @@ RESPONSE_PER_SECOND = 0.35
 NOISE_PERSISTENCE = 0.85
 NOISE_STEP_SD_M = 0.35
 INVOLVEMENT_MS = 2_000
-ANTICIPATION_MS = 3_000
+ANTICIPATION_MS = 8_000
 PERSONAL_SPACE_M = 1.4
 SUPPORT_RUN_MS = 4_500
 COUNTER_WINDOW_MS = 6_000
@@ -127,7 +129,10 @@ class BallTrack:
                 if following is not None and following.clock.period == period
                 else event.clock.ms
             )
-            if isinstance(event, BallOutEvent | FoulEvent) and following_ms > event.clock.ms:
+            if (
+                isinstance(event, BallOutEvent | FoulEvent | GoalEvent)
+                and following_ms > event.clock.ms
+            ):
                 holds[period].append(BallHold(event.clock.ms, following_ms, start))
             if event.end_location is None:
                 continue
@@ -161,12 +166,32 @@ class BallTrack:
         before, after = frames[index - 1], frames[index]
         if after.ms == before.ms:
             return after.spot
-        return before.spot.toward(after.spot, (ms - before.ms) / (after.ms - before.ms))
+        progress = (ms - before.ms) / (after.ms - before.ms)
+        flight = self.flight_at(period, ms)
+        if flight is not None and isinstance(flight.event, CarryEvent):
+            # A dribble alternates a small push with a slower control phase.
+            # Keep the authored route and endpoints; vary only ground-ball
+            # speed within the carry. The derivative remains positive.
+            touches = max(1, round(before.spot.distance_to(after.spot) / 1.8))
+            progress -= 0.6 * math.sin(2 * math.pi * touches * progress) / (2 * math.pi * touches)
+        return before.spot.toward(after.spot, progress)
 
     def restarted(self, period: Period, start_ms: int, end_ms: int) -> bool:
         begin = max(0, bisect_right(self._hold_times[period], start_ms) - 1)
         end = bisect_right(self._hold_times[period], end_ms)
         return any(start_ms < hold.end_ms <= end_ms for hold in self._holds[period][begin:end])
+
+    def is_dead_ball(self, period: Period, ms: int) -> bool:
+        index = bisect_right(self._hold_times[period], ms) - 1
+        return index >= 0 and ms < self._holds[period][index].end_ms
+
+    def arrival_for(self, event: PassEvent) -> int:
+        index = bisect_right(self._flight_times[event.clock.period], event.clock.ms) - 1
+        if index >= 0:
+            flight = self._flights[event.clock.period][index]
+            if flight.event.event_id == event.event_id:
+                return flight.arrival_ms
+        return event.clock.ms
 
     def flight_at(self, period: Period, ms: int) -> BallFlight | None:
         index = bisect_right(self._flight_times[period], ms) - 1
@@ -227,9 +252,7 @@ def spot_of(point: Point) -> Spot:
 
 def _flight_apex(event: PassEvent | CarryEvent | ShotEvent, start: Spot, end: Spot) -> float:
     if isinstance(event, PassEvent):
-        if event.attrs.height == "high":
-            return min(7.0, 1.4 + start.distance_to(end) * 0.1)
-        return 0.45 if event.attrs.height == "low" else 0.0
+        return pass_apex(start.distance_to(end), event.attrs.height)
     if isinstance(event, ShotEvent):
         return 0.7 if event.attrs.body_part == "head" else 0.45
     return 0.0
@@ -268,6 +291,8 @@ class TrackingBuilder:
         self._counter_until_ms = 0
         self._previous_event: MatchEvent | None = None
         self._previous_ball: Spot | None = None
+        self._dead_ball = False
+        self._press_targets: dict[str, Spot] = {}
         # The synthetic simulator knows its event script. Let participants move
         # towards their next involvement before the action, rather than chasing
         # a pass location only after the ball has already left it.
@@ -278,9 +303,7 @@ class TrackingBuilder:
                     Keyframe(event.clock.ms, spot_of(event.location))
                 )
             if isinstance(event, PassEvent) and event.outcome == "complete":
-                arrival = event.clock.ms + _flight_ms(
-                    event, spot_of(event.location).distance_to(spot_of(event.end_location))
-                )
+                arrival = self._ball_track.arrival_for(event)
                 self._actions.setdefault((event.clock.period, event.attrs.receiver_id), []).append(
                     Keyframe(arrival, spot_of(event.end_location))
                 )
@@ -418,27 +441,44 @@ class TrackingBuilder:
 
     def _frame(self, period: Period, ms: int, *, frame_seq: int) -> TrackingFrame:
         ball = self._ball_track.position(period, ms)
+        self._dead_ball = self._ball_track.is_dead_ball(period, ms)
         moment = FrameMoment(period=period, ms=ms, ball=ball)
         players: list[PlayerPos] = []
         # All players react to the same state, independent of iteration order.
         self._frame_positions = dict(self._positions)
+        self._press_targets = self._defensive_reactions(moment)
+        preparing_kickoff = self._dead_ball and isinstance(self._previous_event, GoalEvent)
+        shape_ball = CENTRE_SPOT if preparing_kickoff else ball
         for side in SIDES:
             team = self._teams[side]
             shape = team_shape(
                 team,
-                ball,
+                shape_ball,
                 attacking_right=attacks_right(side, period),
-                in_possession=side == self._possession,
+                in_possession=side == self._possession and not preparing_kickoff,
             )
             for player in team.on_pitch():
                 target = self._target(player, side, shape[player.player_id], moment)
                 key = (period, player.player_id)
-                next_action = bisect_right(self._action_times.get(key, []), ms)
+                next_action = bisect_left(self._action_times.get(key, []), ms)
                 actions = self._actions.get(key, [])
                 involved = player.player_id == self._carrier_id or (
                     next_action < len(actions) and actions[next_action].ms - ms <= ANTICIPATION_MS
                 )
-                players.append(self._move(player, target, period, involved=involved))
+                arrival_seconds = None
+                if (
+                    next_action < len(actions)
+                    and 0 <= actions[next_action].ms - ms <= ANTICIPATION_MS
+                    and target.distance_to(actions[next_action].spot) < 0.2
+                ):
+                    arrival_seconds = (
+                        actions[next_action].ms - ms + FRAME_INTERVAL_MS
+                    ) / MS_PER_SECOND
+                players.append(
+                    self._move(
+                        player, target, period, involved=involved, arrival_seconds=arrival_seconds
+                    )
+                )
         restarted = self._ball_track.restarted(period, ms - FRAME_INTERVAL_MS, ms)
         ball_speed = (
             0.0
@@ -459,20 +499,26 @@ class TrackingBuilder:
     def _target(
         self, player: PlayerState, side: TeamSide, shape_spot: Spot, moment: FrameMoment
     ) -> Spot:
-        involvement = self._involvement_target(player, side, shape_spot, moment)
+        involvement = (
+            None if self._dead_ball else self._involvement_target(player, side, shape_spot, moment)
+        )
         if involvement is not None:
             return involvement
         key = (moment.period, player.player_id)
         actions = self._actions.get(key, [])
-        index = bisect_right(self._action_times.get(key, []), moment.ms)
-        if index < len(actions) and 0 < actions[index].ms - moment.ms <= ANTICIPATION_MS:
+        index = bisect_left(self._action_times.get(key, []), moment.ms)
+        if index < len(actions) and 0 <= actions[index].ms - moment.ms <= ANTICIPATION_MS:
             return actions[index].spot
         focus = self._focus.get(player.player_id)
         if focus is not None and moment.ms <= focus.ms:
             return focus.spot
+        if self._dead_ball:
+            return shape_spot
         if side == self._possession and player.player_id == self._carrier_id:
             return moment.ball
         target = shape_spot
+        if player.player_id in self._press_targets:
+            target = self._press_targets[player.player_id]
         attacking_right = attacks_right(side, moment.period)
         if (
             self._counter_side is not None
@@ -486,6 +532,38 @@ class TrackingBuilder:
         noise = self._next_noise(player.player_id)
         spacing = self._spacing(player.player_id) if not player.is_goalkeeper else Spot(0.0, 0.0)
         return clamp_to_pitch(Spot(target.x + noise.x + spacing.x, target.y + noise.y + spacing.y))
+
+    def _defensive_reactions(self, moment: FrameMoment) -> dict[str, Spot]:
+        """One player presses; a second covers behind, instead of a team swarm."""
+        if self._dead_ball:
+            return {}
+        side: TeamSide = "away" if self._possession == "home" else "home"
+        defenders = sorted(
+            self._teams[side].outfield(),
+            key=lambda player: self._frame_positions.get(player.player_id, moment.ball).distance_to(
+                moment.ball
+            ),
+        )
+        if not defenders:
+            return {}
+        attacking_right = attacks_right(side, moment.period)
+        ball = to_attacking_frame(moment.ball, attacking_right=attacking_right)
+        targets: dict[str, Spot] = {}
+        for index, defender in enumerate(defenders[:2]):
+            current = self._frame_positions.get(defender.player_id)
+            if current is None or current.distance_to(moment.ball) > (14.0 if index == 0 else 20.0):
+                continue
+            # Approach from the goal side. Cover stays deeper and on its own
+            # lateral channel, preserving a passing lane and defensive shape.
+            depth = ball.x - (1.8 if index == 0 else 6.0)
+            lateral = ball.y
+            if index:
+                own = to_attacking_frame(current, attacking_right=attacking_right)
+                lateral += 4.0 if own.y >= ball.y else -4.0
+            targets[defender.player_id] = clamp_to_pitch(
+                from_attacking_frame(Spot(depth, lateral), attacking_right=attacking_right)
+            )
+        return targets
 
     def _involvement_target(
         self, player: PlayerState, side: TeamSide, shape_spot: Spot, moment: FrameMoment
@@ -538,7 +616,13 @@ class TrackingBuilder:
         return noise
 
     def _move(
-        self, player: PlayerState, target: Spot, period: Period, *, involved: bool = False
+        self,
+        player: PlayerState,
+        target: Spot,
+        period: Period,
+        *,
+        involved: bool = False,
+        arrival_seconds: float | None = None,
     ) -> PlayerPos:
         player_id = player.player_id
         current = self._positions.get(player_id, target)
@@ -550,7 +634,10 @@ class TrackingBuilder:
         if period == 2:
             top_speed_kmh *= SECOND_HALF_SPEED_FACTOR
         response = 0.65 if involved else RESPONSE_PER_SECOND
-        desired_speed = min(gap * response, top_speed_kmh / KMH_PER_MPS)
+        desired_speed = min(
+            gap / max(1.0, arrival_seconds) if arrival_seconds is not None else gap * response,
+            top_speed_kmh / KMH_PER_MPS,
+        )
         desired = (
             Spot(0.0, 0.0)
             if gap == 0

@@ -21,6 +21,12 @@ Evidence is pinned when the insight is generated. Later tracking updates and mat
 
 The endpoint is `GET /api/matches/{match_id}/insights/{insight_id}/evidence`. Only published insights are available; evidence remains in memory for the lifetime of that match session. See [the judge walkthrough](docs/hero-demo.md) for a short demonstration.
 
+## Shared football simulation
+
+The match engine now advances one shared player-and-ball world in bounded 50 ms steps. Passes, shots, blocks, interceptions and saves are resolved against moving players before their outcome events are emitted. The same world records positions for the 3D view; a separate animation simulation does not decide what happened.
+
+Regular tracking frames are supplemented with kick/contact frames. Near-ball players include compact subsecond position and facing paths. Historical replay uses recorded frame intervals, while orbit, zoom and evidence markings remain available. All movement is synthetic and the football rules and contact model are simplified. See [simulation design and limits](docs/shared-simulation.md).
+
 > **Status:** M1–M7 are complete; M8 Azure deployment is in progress on `m8-azure`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
 
 ## Repository layout

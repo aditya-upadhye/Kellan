@@ -3,14 +3,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { BallSample, TrackingFrame } from '../generated/TrackingFrame'
 import { animateFootballer, createFootballer } from './footballer'
 import type { Footballer } from './footballer'
-import { interpolate, isDiscontinuity, sampleBallPath, zero } from './motion'
+import { interpolate, isDiscontinuity, sampleBallPath, samplePlayerPath, zero } from './motion'
 import type { Position } from './motion'
 import { buildStadium, createBall } from './stadium'
 import { highlightedPlayers, visibleEvidenceEvents } from './evidence'
 import type { PitchEvidence } from './evidence'
 import { buildEvidenceGeometry } from './evidenceGeometry'
+import type { Player } from '../generated/MatchMetadata'
 
-export type CameraView = 'broadcast' | 'sideline' | 'goal'
+export type CameraView = 'broadcast' | 'sideline' | 'goal' | 'wide'
 
 interface Actor {
   model: Footballer
@@ -19,6 +20,7 @@ interface Actor {
   incoming: Position
   outgoing: Position
   speed: number
+  path: [number, number, number, number][]
   evidenceRing: THREE.Mesh
 }
 
@@ -50,11 +52,11 @@ export class PitchScene {
   private controls: OrbitControls
   private resize: ResizeObserver
   private actors = new Map<string, Actor>()
+  private players = new Map<string, Player>()
   private ball = createBall()
   private ballStart: Position = zero
   private ballEnd: Position = zero
   private ballPath: BallSample[] = []
-  private ballCorrection = new THREE.Vector3()
   private ballHeightStart = .25
   private ballHeightEnd = .25
   private clockStart = 0
@@ -66,6 +68,7 @@ export class PitchScene {
   private segmentDuration = 100
   private lastTime = 0
   private replaying = false
+  private viewPaused = false
   private labels = true
   private follow = false
   private manualOrbit = false
@@ -92,11 +95,13 @@ export class PitchScene {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.dampingFactor = .09
-    this.controls.minDistance = 15
+    this.controls.minDistance = 7
     this.controls.maxDistance = 155
     this.controls.minPolarAngle = .15
-    this.controls.maxPolarAngle = Math.PI * .46
-    this.controls.maxTargetRadius = 50
+    this.controls.maxPolarAngle = Math.PI * .43
+    this.controls.zoomSpeed = 1.3
+    this.controls.cursor.set(0, 0, 0)
+    this.controls.maxTargetRadius = 110
     this.controls.listenToKeyEvents(this.renderer.domElement)
     this.controls.addEventListener('start', this.orbitStarted)
     buildStadium(this.scene)
@@ -130,24 +135,45 @@ export class PitchScene {
     this.onUnavailable()
   }
 
-  private orbitStarted = () => { this.manualOrbit = true; this.onOrbit() }
+  // Orbit and dolly preserve ball tracking. Panning is available in free view.
+  private orbitStarted = () => { if (!this.follow) this.manualOrbit = true }
 
   setCamera(view: CameraView) {
     this.view = view
     this.manualOrbit = false
+    this.controls.enablePan = !this.follow || view === 'wide'
     // Flush damping from the previous camera before applying an exact preset.
     this.controls.enableDamping = false
     this.controls.update()
     const positions: Record<CameraView, [number, number, number]> = {
-      broadcast: [0, 66, 78], sideline: [8, 25, 54], goal: [-77, 32, 8],
+      broadcast: [0, 36, 44], sideline: [0, 19, 31], goal: [-35, 22, 0], wide: [0, 78, 82],
     }
-    this.camera.position.set(...positions[view])
-    this.controls.target.set(0, 0, 0)
+    const target = this.follow && view !== 'wide' && this.previous ? this.ball.position.clone().setY(0) : new THREE.Vector3()
+    this.controls.target.copy(target)
+    this.camera.position.copy(target).add(new THREE.Vector3(...positions[view]))
     this.controls.update()
     this.controls.enableDamping = true
   }
 
-  setFollow(follow: boolean) { this.follow = follow; this.manualOrbit = false }
+  setFollow(follow: boolean) {
+    this.follow = follow; this.manualOrbit = false
+    this.controls.enablePan = !follow || this.view === 'wide'
+    if (follow && this.previous && this.view !== 'wide') this.focusBall()
+  }
+  setPlayers(players: Player[]) { this.players = new Map(players.map(player => [player.player_id, player])) }
+  zoom(factor: number) {
+    const offset = this.camera.position.clone().sub(this.controls.target)
+    offset.setLength(THREE.MathUtils.clamp(offset.length() * factor, this.controls.minDistance, this.controls.maxDistance))
+    this.camera.position.copy(this.controls.target).add(offset)
+    this.controls.update()
+  }
+  focusBall() {
+    if (!this.previous) return
+    const offset = this.camera.position.clone().sub(this.controls.target)
+    this.controls.target.copy(this.ball.position).setY(0)
+    this.camera.position.copy(this.controls.target).add(offset)
+    this.controls.update()
+  }
   resetPlayback() { this.previous = null }
 
   setEvidence(evidence: PitchEvidence | null) {
@@ -180,12 +206,13 @@ export class PitchScene {
 
   update(frame: TrackingFrame | null, history: TrackingFrame[], duration: number, home: string, away: string, replaying: boolean) {
     if (!frame) return
-    if (this.previous?.match_id === frame.match_id && this.previous.frame_seq === frame.frame_seq && this.replaying === replaying) return
+    if (this.previous?.match_id === frame.match_id && this.previous.frame_seq === frame.frame_seq && this.replaying === replaying && this.viewPaused === (duration === 0)) return
     // Finish sampling the active segment before retargeting. A delayed packet or
     // faster playback must not snap players back to the previous input sample.
     const now = performance.now()
     this.sample(now, 0)
-    const reset = isDiscontinuity(this.previous, frame, this.replaying !== replaying)
+    const reset = duration === 0 || isDiscontinuity(this.previous, frame, this.replaying !== replaying)
+    this.viewPaused = duration === 0
     const source = this.previous
     const prior = new Map(source?.players.map(player => [player.player_id, player]))
     const active = new Set(frame.players.map(player => player.player_id))
@@ -198,13 +225,13 @@ export class PitchScene {
       const outgoing = previousPoint && !reset ? { x: point.x - previousPoint.x, y: point.y - previousPoint.y } : zero
       const color = point.player_id.startsWith('h') ? home : away
       if (!actor) {
-        const model = createFootballer(point.player_id, color)
+        const model = createFootballer(point.player_id, color, this.players.get(point.player_id)?.number)
         model.root.position.set(point.x - 52.5, 0, point.y - 34)
         model.label.visible = this.labels
         const evidenceRing = new THREE.Mesh(new THREE.RingGeometry(.68, .84, 32), new THREE.MeshBasicMaterial({ color: '#ffd37c', transparent: true, opacity: .95, depthWrite: false }))
         evidenceRing.rotation.x = -Math.PI / 2; evidenceRing.position.y = .06; evidenceRing.visible = false
         model.root.add(evidenceRing)
-        actor = { model, start: point, end: point, incoming: zero, outgoing, speed: point.speed_kmh, evidenceRing }
+        actor = { model, start: point, end: point, incoming: zero, outgoing, speed: point.speed_kmh, evidenceRing, path: [] }
         this.actors.set(point.player_id, actor); this.scene.add(model.root)
       }
       actor.model.kit.color.set(color)
@@ -213,7 +240,12 @@ export class PitchScene {
       actor.incoming = reset ? zero : actor.outgoing
       actor.outgoing = outgoing
       actor.speed = point.speed_kmh
-      if (reset) { actor.model.root.position.set(point.x - 52.5, 0, point.y - 34); actor.model.pace = 0 }
+      actor.path = !reset && source && frame.clock.ms - source.clock.ms === (frame.interval_ms ?? 1000) ? (frame.player_trajectories?.[point.player_id] ?? []) : []
+      if (reset) {
+        const facing = frame.player_trajectories?.[point.player_id]?.at(-1)?.[3]
+        if (facing !== undefined) actor.model.heading = facing
+      }
+      if (reset) { actor.model.root.position.set(point.x - 52.5, 0, point.y - 34); actor.model.pace = 0; actor.model.turnRate = 0 }
     }
     this.ballStart = reset ? frame.ball : { x: this.ball.position.x + 52.5, y: this.ball.position.z + 34 }
     this.ballEnd = frame.ball
@@ -221,13 +253,7 @@ export class PitchScene {
     this.ballHeightStart = reset ? this.ballHeightEnd : this.ball.position.y
     this.clockStart = reset ? frame.clock.ms : (source?.clock.ms ?? frame.clock.ms)
     if (reset) this.ball.position.set(frame.ball.x - 52.5, this.ballHeightEnd, frame.ball.y - 34)
-    this.ballPath = !reset && source && frame.clock.ms - source.clock.ms === 1000 ? (frame.ball_trajectory ?? []) : []
-    const firstPoint = this.ballPath[0]
-    if (firstPoint) this.ballCorrection.set(
-      this.ball.position.x - (firstPoint.x - 52.5),
-      this.ball.position.y - (firstPoint.height_m + .25),
-      this.ball.position.z - (firstPoint.y - 34),
-    )
+    this.ballPath = !reset && source && frame.clock.ms - source.clock.ms === (frame.interval_ms ?? 1000) ? (frame.ball_trajectory ?? []) : []
     this.ball.visible = true
     this.segmentStart = now
     this.segmentDuration = Math.max(16, Math.min(1000, duration))
@@ -245,10 +271,13 @@ export class PitchScene {
     if (!this.previous) return
     const t = Math.max(0, Math.min(1, (now - this.segmentStart) / this.segmentDuration))
     this.renderedMs = this.clockStart + (this.previous.clock.ms - this.clockStart) * t
-    const motion = sampleBallPath(this.ballPath, t)
-    const bx = motion ? motion.x - 52.5 + this.ballCorrection.x * (1 - t) : this.ballStart.x + (this.ballEnd.x - this.ballStart.x) * t - 52.5
-    const bz = motion ? motion.y - 34 + this.ballCorrection.z * (1 - t) : this.ballStart.y + (this.ballEnd.y - this.ballStart.y) * t - 34
-    const height = motion ? motion.height_m + .25 + this.ballCorrection.y * (1 - t) : this.ballHeightStart + (this.ballHeightEnd - this.ballHeightStart) * t
+    const interval = this.previous.interval_ms ?? 1000
+    const motion = sampleBallPath(this.ballPath, t, interval)
+    // Recorded contact paths must stay aligned with player paths. A cosmetic
+    // catch-up offset can move a correctly blocked ball through a body.
+    const bx = motion ? motion.x - 52.5 : this.ballStart.x + (this.ballEnd.x - this.ballStart.x) * t - 52.5
+    const bz = motion ? motion.y - 34 : this.ballStart.y + (this.ballEnd.y - this.ballStart.y) * t - 34
+    const height = motion ? motion.height_m + .25 : this.ballHeightStart + (this.ballHeightEnd - this.ballHeightStart) * t
     const ballDx = bx - this.ball.position.x, ballDz = bz - this.ball.position.z
     this.ball.position.set(bx, Math.max(.25, height), bz)
     if (Math.hypot(ballDx, ballDz) < 10) {
@@ -257,12 +286,13 @@ export class PitchScene {
     }
     let closest: Actor | null = null, nearest = 2.2
     for (const actor of this.actors.values()) {
-      const point = interpolate(actor.start, actor.end, actor.incoming, actor.outgoing, t)
+      const recorded = samplePlayerPath(actor.path, t, interval)
+      const point = recorded ?? interpolate(actor.start, actor.end, actor.incoming, actor.outgoing, t)
       const dx = point.x - 52.5 - actor.model.root.position.x
       const dz = point.y - 34 - actor.model.root.position.z
       actor.model.root.position.set(point.x - 52.5, 0, point.y - 34)
       const contact = motion?.actor_id === actor.model.root.name ? motion : null
-      if (delta > 0) animateFootballer(actor.model, delta, Math.hypot(dx, dz), actor.speed, dx, dz, this.ball.position, contact, this.ballEnd)
+      if (delta > 0) animateFootballer(actor.model, delta, Math.hypot(dx, dz), actor.speed, dx, dz, this.ball.position, contact, this.ballEnd, recorded?.facing)
       const distance = actor.model.root.position.distanceTo(this.ball.position)
       if (distance < nearest) { nearest = distance; closest = actor }
     }
@@ -280,10 +310,14 @@ export class PitchScene {
     for (const group of this.evidenceLayer.children) if (group.userData.eventId) group.visible = visible.has(group.userData.eventId)
     const players = this.evidence ? highlightedPlayers(this.evidence, this.renderedMs) : new Set<string>()
     for (const [id, actor] of this.actors) actor.evidenceRing.visible = players.has(id)
-    if (this.follow && !this.manualOrbit && this.previous) {
-      const factor = 1 - Math.exp(-delta * 2)
-      const targetX = this.ball.position.x * (this.view === 'broadcast' ? .28 : .7)
-      const targetZ = this.ball.position.z * .25
+    if (this.follow && !this.manualOrbit && this.previous && this.view !== 'wide') {
+      const targetX = this.ball.position.x
+      const targetZ = this.ball.position.z
+      const gap = Math.hypot(targetX - this.controls.target.x, targetZ - this.controls.target.z)
+      // Zoomed views and accelerated playback need a tighter screen-space
+      // leash than the wide broadcast view, or the ball can leave the frame.
+      const maxLag = Math.max(.6, this.camera.position.distanceTo(this.controls.target) * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * Math.min(1, this.camera.aspect) * .3)
+      const factor = Math.max(1 - Math.exp(-delta * 6), 1 - maxLag / Math.max(.001, gap))
       const dx = (targetX - this.controls.target.x) * factor
       const dz = (targetZ - this.controls.target.z) * factor
       this.controls.target.x += dx; this.controls.target.z += dz

@@ -12,6 +12,7 @@ from matchlens.agents.live import LiveAgentWorkflow
 from matchlens.config import LLMMode, Settings
 from matchlens.metrics.engine import MetricsEngine
 from matchlens.models.base import Contract, TeamSide
+from matchlens.models.clock import MatchClock
 from matchlens.models.cues import OverlayCue, Recap
 from matchlens.models.envelope import StreamEnvelope
 from matchlens.models.events import BaseEvent, GoalEvent, MatchEvent
@@ -67,6 +68,7 @@ class MatchSession:
     profiles: tuple[ViewerProfile, ...] = DEFAULT_PROFILES
     llm_mode: LLMMode = LLMMode.MOCK
     fault_inject_requested: bool = False
+    insight_waiting: bool = False
     state: Literal["starting", "running", "paused", "complete", "error", "stopped"] = "starting"
     clock: dict[str, int] = field(default_factory=lambda: {"period": 1, "ms": 0})
     events: list[BaseEvent] = field(default_factory=list[BaseEvent])
@@ -286,6 +288,7 @@ class MatchManager:
                     if delta > 0:
                         await asyncio.sleep(delta / (1000 * session.speed))
                 await session.resume_gate.wait()
+                await self._wait_for_insights(session, item.clock)
                 previous = stamp
                 session.clock = {"period": item.clock.period, "ms": item.clock.ms}
                 if isinstance(item, TrackingFrame):
@@ -317,6 +320,19 @@ class MatchManager:
             if session.workflow is not None:
                 await session.workflow.close()
             session.viewer_changed.set()
+
+    async def _wait_for_insights(self, session: MatchSession, clock: MatchClock) -> None:
+        workflow = session.workflow
+        if workflow is None or not workflow.playback_blocked_at(clock):
+            return
+        session.insight_waiting = True
+        await session.publish(_status(session))
+        try:
+            await workflow.wait_for_playback(clock)
+        finally:
+            session.insight_waiting = False
+            await session.publish(_status(session))
+        await session.resume_gate.wait()
 
     async def _save_snapshots(self, session: MatchSession, snapshots: list[MetricSnapshot]) -> None:
         for snapshot in snapshots:
@@ -403,6 +419,7 @@ def _status(session: MatchSession) -> StreamEnvelope:
             "period": session.clock["period"],
             "clock_ms": session.clock["ms"],
             "speed": str(session.speed),
+            "insight_waiting": session.insight_waiting,
         },
     )
 

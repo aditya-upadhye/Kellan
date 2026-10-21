@@ -34,4 +34,4 @@ The template enables the container registry admin account and stores its passwor
 
 The deployment identity's federated credential is restricted to the `main` branch. Pull requests and pushes do not provision Azure resources.
 
-The public app starts in Judge mode without login. See [Judge mode](judge-mode.md) for the preset behavior, deployment limits, and verification steps.
+The public app offers editable fixture controls and a Judge mode preset without login. See [Judge mode](judge-mode.md) for the preset behavior, deployment limits, and verification steps.

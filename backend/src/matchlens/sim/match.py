@@ -9,7 +9,6 @@ from matchlens.models.match import MatchMetadata, Team
 from matchlens.models.tracking import TrackingFrame
 from matchlens.sim.engine import MatchEngine
 from matchlens.sim.scenarios import Injection, Scenario, StyleOverride
-from matchlens.sim.tracking import build_tracking_frames
 from matchlens.sim.tuning import DEFAULT_TUNING, EngineTuning
 from matchlens.world.models import Club, League
 
@@ -75,8 +74,9 @@ def simulate_match(
     script: Sequence[Injection] = (),
 ) -> SimulatedMatch:
     rng = Random(metadata.seed)
-    events = MatchEngine(metadata, rng, tuning, script).run()
-    frames = build_tracking_frames(metadata, events, rng) if with_tracking else []
+    engine = MatchEngine(metadata, rng, tuning, script, record_tracking=with_tracking)
+    events = engine.run()
+    frames = engine.world.frames if with_tracking else []
     return SimulatedMatch(metadata=metadata, events=events, frames=frames)
 
 

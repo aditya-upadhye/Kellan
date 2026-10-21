@@ -15,6 +15,7 @@ export interface Footballer {
   phase: number
   pace: number
   heading: number
+  turnRate: number
   kit: THREE.MeshStandardMaterial
 }
 
@@ -33,7 +34,7 @@ function joint(parent: THREE.Object3D, x: number, y: number, z: number) {
   return group
 }
 
-export function createFootballer(id: string, color: string): Footballer {
+export function createFootballer(id: string, color: string, shirtNumber?: number): Footballer {
   const root = new THREE.Group()
   root.name = id
   // Modest enlargement keeps team kits and joints legible in the wide camera.
@@ -82,44 +83,66 @@ export function createFootballer(id: string, color: string): Footballer {
   ctx.fillStyle = 'rgba(8,19,27,.83)'
   ctx.beginPath(); ctx.roundRect(14, 8, 100, 48, 14); ctx.fill()
   ctx.fillStyle = '#fff'; ctx.font = 'bold 32px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(id.toUpperCase(), 64, 33)
+  ctx.fillText(shirtNumber === undefined ? '?' : String(shirtNumber), 64, 33)
   const map = new THREE.CanvasTexture(canvas)
   map.colorSpace = THREE.SRGBColorSpace
   const label = new THREE.Sprite(new THREE.SpriteMaterial({ map, depthWrite: false, transparent: true }))
   label.position.y = 2.3; label.scale.set(2.5, 1.25, 1)
   root.add(label)
-  return { root, body, head, hips, knees, shoulders, elbows, soles, label, phase: seed, pace: 0, heading: 0, kit }
+  const shirtCanvas = document.createElement('canvas')
+  shirtCanvas.width = 64; shirtCanvas.height = 64
+  const shirtContext = shirtCanvas.getContext('2d')!
+  shirtContext.fillStyle = '#fff'; shirtContext.font = 'bold 48px sans-serif'
+  shirtContext.textAlign = 'center'; shirtContext.textBaseline = 'middle'
+  shirtContext.fillText(shirtNumber === undefined ? '?' : String(shirtNumber), 32, 34)
+  const shirtMap = new THREE.CanvasTexture(shirtCanvas)
+  shirtMap.colorSpace = THREE.SRGBColorSpace
+  const shirt = mesh(new THREE.PlaneGeometry(.27, .28), new THREE.MeshBasicMaterial({ map: shirtMap, transparent: true, depthWrite: false }), body, 0, .3, -.169)
+  shirt.rotation.y = Math.PI
+  return { root, body, head, hips, knees, shoulders, elbows, soles, label, phase: seed, pace: 0, heading: 0, turnRate: 0, kit }
 }
 
 const solePosition = new THREE.Vector3()
 
-export function animateFootballer(player: Footballer, delta: number, distance: number, speed: number, dx: number, dz: number, ball: THREE.Vector3, contact: BallSample | null, ballEnd: Position) {
+export function animateFootballer(player: Footballer, delta: number, distance: number, speed: number, dx: number, dz: number, ball: THREE.Vector3, contact: BallSample | null, ballEnd: Position, recordedFacing?: number) {
   const moving = distance > .0001
   const response = 1 - Math.exp(-delta * 14)
   player.pace += ((moving ? Math.min(1, speed / 20) : 0) - player.pace) * response
   const ballHeading = Math.atan2(ball.x - player.root.position.x, ball.z - player.root.position.z)
   const nearBall = player.root.position.distanceTo(ball) < 3
   const kicking = contact && nearBall && (contact.action === 'pass' || contact.action === 'shot')
-  const kick = kicking ? Math.max(0, 1 - contact.progress * 3) : 0
+  const windup = kicking && contact.preparing ? contact.progress : 0
+  const kick = kicking && !contact.preparing ? Math.max(0, 1 - contact.progress * 3) : 0
+  const receiving = contact?.action === 'receive' && nearBall ? 1 - contact.progress : 0
+  const block = contact?.action === 'block' && nearBall ? 1 - contact.progress : 0
+  const save = contact?.action === 'save' && nearBall ? 1 - contact.progress : 0
   const desired = kick > .1
     ? Math.atan2(ballEnd.x - 52.5 - player.root.position.x, ballEnd.y - 34 - player.root.position.z)
     : moving ? Math.atan2(dx, dz) : ballHeading
   const turn = Math.atan2(Math.sin(desired - player.heading), Math.cos(desired - player.heading))
-  player.heading += turn * (1 - Math.exp(-delta * (moving ? 12 : 3)))
+  // Sprinting players need time to change direction. Accelerate the turn and
+  // cap angular speed, rather than spinning the body toward every new sample.
+  const maxTurnRate = 5.5 - player.pace * 2.5
+  const desiredTurnRate = Math.max(-maxTurnRate, Math.min(maxTurnRate, turn * 7))
+  player.turnRate += (desiredTurnRate - player.turnRate) * (1 - Math.exp(-delta * 10))
+  const turnStep = player.turnRate * delta
+  player.heading += Math.sign(turnStep) === Math.sign(turn) ? Math.sign(turn) * Math.min(Math.abs(turn), Math.abs(turnStep)) : 0
+  if (recordedFacing !== undefined) player.heading = recordedFacing
   player.root.rotation.y = player.heading
   // Cadence follows distance, capped at fast playback so legs remain readable.
   player.phase += moving ? Math.min(distance * 2.8, delta * 23) : delta * player.pace * 3
   const stride = Math.sin(player.phase) * (.2 + player.pace * .6) * Math.min(1, player.pace * 4)
   const controlling = contact?.action === 'carry' && nearBall && speed < 22
   player.body.position.y = .9
-  player.body.rotation.x = player.pace * .12 + kick * .13
-  player.body.rotation.z = -Math.max(-.12, Math.min(.12, turn * .1)) * player.pace
+  player.body.rotation.x = player.pace * .12 + kick * .13 + windup * .08 + receiving * .08 + block * .12
+  player.body.rotation.y = Math.max(-.18, Math.min(.18, turn * .2)) * player.pace
+  player.body.rotation.z = -Math.max(-.12, Math.min(.12, player.turnRate * .035)) * player.pace
   player.head.rotation.y = Math.max(-.65, Math.min(.65, Math.atan2(Math.sin(ballHeading - player.heading), Math.cos(ballHeading - player.heading))))
   for (let i = 0; i < 2; i++) {
     const swing = i === 0 ? stride : -stride
-    player.hips[i].rotation.x = i === 1 && kick > 0 ? -kick * 1.05 : swing - (controlling && i === 1 ? .18 * player.pace : 0)
-    player.knees[i].rotation.x = i === 1 && kick > 0 ? kick * .2 : Math.max(0, -swing) * 1.2
-    player.shoulders[i].rotation.x = -swing * .8
+    player.hips[i].rotation.x = i === 1 && (kick > 0 || windup > 0 || receiving > 0 || block > 0) ? windup * .65 - kick * 1.05 - receiving * .25 - block * .55 : swing - (controlling && i === 1 ? .18 * player.pace : 0)
+    player.knees[i].rotation.x = i === 1 && (kick > 0 || windup > 0) ? kick * .2 + windup * .85 : Math.max(0, -swing) * 1.2 + receiving * .15
+    player.shoulders[i].rotation.x = -swing * .8 - kick * (i === 0 ? .25 : -.15) - save * 1.25
     player.shoulders[i].rotation.z = (i === 0 ? -1 : 1) * (.13 + kick * .25)
     player.elbows[i].rotation.x = -.15 - player.pace * .65
   }

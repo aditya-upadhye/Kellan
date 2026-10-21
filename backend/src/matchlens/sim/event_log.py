@@ -1,8 +1,14 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from matchlens.models.clock import MatchClock
 from matchlens.models.events import MatchEvent, format_event_id
-from matchlens.sim.space import Period
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from matchlens.sim.space import Period
 
 
 class EventLog:
@@ -11,6 +17,7 @@ class EventLog:
         self._events: list[MatchEvent] = []
         self.period: Period = 1
         self.ms = 0
+        self.on_advance: Callable[[Period, int, int], None] | None = None
 
     @property
     def events(self) -> list[MatchEvent]:
@@ -25,6 +32,8 @@ class EventLog:
         self.ms = 0
 
     def advance(self, duration_ms: int) -> None:
+        if self.on_advance is not None:
+            self.on_advance(self.period, self.ms, duration_ms)
         self.ms += duration_ms
 
     def emit[EventT: MatchEvent](self, event_type: type[EventT], **fields: Any) -> EventT:

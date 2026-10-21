@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     fault_inject_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     factcheck_qualitative: bool = False
     judge_mode: bool = False
+    llm_request_timeout_seconds: float = Field(default=12.0, gt=0, le=60)
+    llm_request_attempts: int = Field(default=2, ge=1, le=3)
+    insight_generation_timeout_seconds: float = Field(default=90.0, gt=0, le=300)
 
     max_concurrent_matches: int = Field(default=2, ge=1)
     max_llm_calls_per_match: int = Field(default=400, ge=0)
