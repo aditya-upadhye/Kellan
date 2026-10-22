@@ -4,6 +4,41 @@ All notable changes are recorded here, one section per milestone tag.
 
 ## [Unreleased] - M8 Azure deployment
 
+### Progressive kickoff and regression fixes
+
+- Generate live matches progressively through a bounded 64-input queue. Playback pauses apply backpressure; closing a match stops its generation worker. Retain received footage for rewind without a second full fixture in the worker.
+- Preserve event/frame ordering at the same clock instant, including rewritten restart frames. Keep full offline fixture generation available through the CLI.
+- Record a blocked pass recovered by its kicker as incomplete instead of an invalid self-pass. Keep squad rendering compatible with metadata that omits players.
+- Repair collision deadlocks at pitch boundaries, stale kickoff restrictions and first-touch gathering. Report speed from resolved displacement and actual frame intervals.
+- Fix a post-goal kickoff deadlock reproduced from balanced seed 29: retreating players avoid the stationary ball, and crowded contact chains receive more solver iterations. Add the exact midfield configuration as a regression.
+- Add focused contact, stream startup, cancellation, ordering/parity and rewind regressions. Statistical calibration still uses all 50 seeds and the existing realism bounds.
+
+### Body collisions
+
+- Replaced soft overlap nudges with swept player-disc collisions, normal contact impulses, iterative overlap repair and steering around nearby bodies. Unresolved crowded steps hold remaining movement.
+- Apply ball/body sweeps to both teams, the kicker and unintended receivers, including carries and vertical entry into body height. Teammate receptions and shot blocks now resolve against the actual contacted player.
+- Record all players' movement/contact knots and ball contact timestamps. Removed the renderer's ball catch-up offset, which could shift the visible ball into bodies despite a correct source path. New matches are required; old fixtures retain their authored movement. Added collision work increases CPU, data and rewind-memory costs.
+
+### Camera, player identity and match rewind
+
+- Ball tracking now stays enabled while orbiting and zooming. Added closer broadcast, sideline and goal presets, a full-pitch overview, explicit zoom buttons and Find Ball. Free view still allows panning.
+- Pitch labels, shirt backs and 2D markers use roster shirt numbers. Added a name/number/role lineup that follows the displayed footage, and names in the live event feed.
+- Retain received match tracking for the session instead of the last 60 frames. Added a time-based seek bar, backward/forward ten-second steps, view pause/play at 1× and Return Live. Pinned evidence remains restricted to its own replay window; score, metrics and commentary remain live and are identified as such during tracking review.
+
+### Shared simulation
+
+- Replaced the default event-to-tracking reconstruction with a shared fixed-step world. Moving-player contacts now determine pass/shot outcomes; the world records the same player and ball positions consumed by replay.
+- Added acceleration, facing/alignment, carrier-foot control, receiver preparation, swept contacts, rolling friction, gravity and bounce settling. Scripted attacks no longer create remote interceptions to acquire possession.
+- Added kick/contact frames, recorded frame intervals and near-ball player paths with facing. Updated schema generation for numeric tuple paths, 3D playback and replay timing; added receiving/block/save/preparation poses.
+- Kept orbit controls, evidence overlays and pinned metric inspection. Full-match scores and event timing can change; full fixture generation has a CPU cost. See `docs/shared-simulation.md` for limits.
+
+### Live generation reliability
+
+- Added Foundry playback pacing: requested replay speed is an upper bound. Playback waits with a visible message before an in-progress detector review, insight, or queued cue reaches the existing freshness cutoff. Goals/cards bypass the detector model-review lock.
+- Gave each transport attempt a configurable 12-second timeout and a separate retry budget. Extended the full insight budget to 90 seconds, with a verified local-template fallback on exhaustion. Recap timeouts now accommodate the configured request attempts.
+- Skip detector model calls while the noncritical story pacing cap prevents publication. Constrain returned candidate IDs and decision count, and include validation diagnostics in fallback traces.
+- Mark cancelled Foundry requests as rejected instead of successful. Keep `JUDGE_MODE=false` in deployment configuration so the standard controls remain available alongside the judge preset.
+
 ### Insight inspection
 
 - Added a persistent published-story shelf and SHOW ME WHY inspector connecting exact published wording, pinned metrics, independent recomputation, historical 3D/2D replay, and per-moment agent decisions.
@@ -13,6 +48,14 @@ All notable changes are recorded here, one section per milestone tag.
 
 
 ### Presentation
+
+- Added geometric lane checks for receiver selection. Final outcomes now use the shared world's moving contacts rather than the initial lane estimate. Fixed-seed scores and scripted goal timing may change.
+
+- Added ground-ball touch rhythm during carries while preserving route endpoints and keeping forward motion monotonic. Reconstruct authored airborne arcs between trajectory samples to avoid visible vertical kinks.
+- Added bounded, smoothed player turn rates with torso rotation and arm balance during kicks. Replay resets also clear angular momentum.
+
+- Improved tracking contact timing: receivers use the same clipped arrival time as the ball trajectory, participants anticipate up to eight seconds ahead, and approach speed accounts for time remaining while retaining acceleration and top-speed limits.
+- Added a nearby pressing defender with a separate covering player. Dead-ball phases disable the press; after goals, players recover toward kickoff shape and the ball stays at the goal until the explicit restart placement.
 
 - Replaced the CSS stadium with a Three.js WebGL scene: textured pitch, goal nets, instanced spectators, floodlights, dynamic shadows, and modeled footballers with articulated limbs. Added orbit/zoom controls, ball follow, player-number visibility, and camera reset. Kept the original 2D view and added an unavailable-renderer message.
 - Added bounded cubic player interpolation, movement-facing rotation, ball-facing head turns, distance-driven strides, planted supporting feet, and ball rolling. Passing and shooting poses follow authored ball contacts. Interpolation resets for halftime, match changes, replay seeks, and large tracking gaps.

@@ -3,7 +3,7 @@ import type { BallSample, TrackingFrame } from '../generated/TrackingFrame'
 import { interpolate, isDiscontinuity, sampleBallPath, zero } from './motion'
 
 function frame(seq: number, ms = seq * 1000): TrackingFrame {
-  return { match_id: 'fixture', frame_seq: seq, clock: { period: 1, ms }, ball: { x: 52.5, y: 34 }, ball_speed_kmh: 0, players: [], ball_trajectory: [] }
+  return { match_id: 'fixture', frame_seq: seq, clock: { period: 1, ms }, ball: { x: 52.5, y: 34 }, interval_ms: 1000, ball_speed_kmh: 0, players: [], ball_trajectory: [], player_trajectories: {} }
 }
 
 describe('tracking playback', () => {
@@ -38,7 +38,7 @@ describe('tracking playback', () => {
   })
 
   it('plays a short pass within its actual flight window instead of stretching it to a second', () => {
-    const sample = (offset_ms: number, x: number, height_m = 0): BallSample => ({ offset_ms, x, y: 34, height_m, action: 'pass', actor_id: 'h06', event_id: 'pass-1', progress: offset_ms / 500 })
+    const sample = (offset_ms: number, x: number, height_m = 0): BallSample => ({ offset_ms, x, y: 34, height_m, action: 'pass', preparing: false, actor_id: 'h06', event_id: 'pass-1', progress: offset_ms / 500 })
     const path = [sample(0, 40), sample(250, 45, 1.5), sample(500, 50), sample(1000, 50)]
     expect(sampleBallPath(path, .25)?.x).toBe(45)
     expect(sampleBallPath(path, .25)?.height_m).toBe(1.5)
@@ -48,7 +48,7 @@ describe('tracking playback', () => {
   })
 
   it('places a restart without animating a cross-field ball flight', () => {
-    const sample = (offset_ms: number, x: number): BallSample => ({ offset_ms, x, y: 34, height_m: 0, action: 'hold', actor_id: null, event_id: null, progress: 0 })
+    const sample = (offset_ms: number, x: number): BallSample => ({ offset_ms, x, y: 34, height_m: 0, action: 'hold', preparing: false, actor_id: null, event_id: null, progress: 0 })
     const path = [sample(0, 105), sample(999, 105), sample(1000, 52.5)]
     expect(sampleBallPath(path, .9995)?.x).toBe(105)
     expect(sampleBallPath(path, 1)?.x).toBe(52.5)

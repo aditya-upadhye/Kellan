@@ -1,5 +1,5 @@
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from random import Random
 from typing import Literal
 
@@ -8,6 +8,7 @@ from matchlens.models.base import TeamSide
 from matchlens.models.clock import MS_PER_MINUTE, REGULATION_PERIOD_MINUTES
 from matchlens.models.events import (
     BallOutEvent,
+    BaseEvent,
     BodyPart,
     CardAttrs,
     CardEvent,
@@ -42,12 +43,14 @@ from matchlens.models.events import (
 )
 from matchlens.models.match import MatchMetadata
 from matchlens.models.pitch import PITCH_LENGTH_M, PITCH_WIDTH_M
+from matchlens.models.tracking import TrackingFrame
 from matchlens.sim.event_log import EventLog
+from matchlens.sim.lanes import LaneContact, lane_contacts, pass_apex
 from matchlens.sim.scenarios import Injection, StyleShift
-from matchlens.sim.shape import team_shape
 from matchlens.sim.space import (
     CENTRE_LATERAL_M,
     CENTRE_SPOT,
+    HALFWAY_M,
     PENALTY_SPOT_DISTANCE_M,
     Period,
     Spot,
@@ -61,6 +64,7 @@ from matchlens.sim.space import (
 )
 from matchlens.sim.squad import PlayerState, TeamState
 from matchlens.sim.tuning import DEFAULT_TUNING, EngineTuning, MsRange
+from matchlens.sim.world import STEP_MS, Contact, MatchWorld
 
 Action = Literal["pass", "carry", "dribble", "shot"]
 SetPiece = Literal["corner", "penalty", "direct_free_kick", "free_kick_cross"]
@@ -72,7 +76,7 @@ SHOT_OUTCOMES_WITHOUT_GOAL: tuple[ShotOutcome, ...] = ("blocked", "saved", "off_
 FINAL_THIRD_START_M = PITCH_LENGTH_M * 2 / 3
 OWN_THIRD_END_M = PITCH_LENGTH_M / 3
 GOAL_KICK_DEPTH_M = 5.5
-CORNER_INSET_M = 0.5
+CORNER_INSET_M = 1.0
 BOX_TARGET_DEPTH_M = (94.0, 100.0)
 BOX_TARGET_LATERAL_M = (28.0, 40.0)
 CROSSING_CHANNEL_M = 14.0
@@ -81,12 +85,16 @@ FORCED_MIN_FORWARD_GAIN_M = 3.0
 
 
 class MatchEngine:
-    def __init__(
+    def __init__(  # noqa: PLR0913 - retain offline options and optional streaming hooks
         self,
         metadata: MatchMetadata,
         rng: Random,
         tuning: EngineTuning = DEFAULT_TUNING,
         script: Sequence[Injection] = (),
+        *,
+        record_tracking: bool = True,
+        on_input: Callable[[BaseEvent | TrackingFrame], None] | None = None,
+        retain_history: bool = True,
     ) -> None:
         self._rng = rng
         self._tuning = tuning
@@ -95,6 +103,12 @@ class MatchEngine:
             "home": TeamState.from_team(metadata.home),
             "away": TeamState.from_team(metadata.away),
         }
+        self.world = MatchWorld(metadata.match_id, self._teams, record=record_tracking)
+        self.world.on_frame = on_input
+        self.world.retain_history = retain_history
+        self._log.on_event = on_input
+        self._log.retain_history = retain_history
+        self._log.on_advance = self._advance_world
         self._possession: TeamSide = "home"
         self._carrier = self._teams["home"].most_advanced()
         self._ball = CENTRE_SPOT
@@ -115,6 +129,7 @@ class MatchEngine:
 
     def _play_period(self, period: Period, kickoff_side: TeamSide) -> None:
         self._log.start_period(period)
+        self.world.start_period(period)
         period_end_ms = REGULATION_PERIOD_MS + self._uniform_ms(self._tuning.added_time_ms)
         if period == 2:
             self._plan_substitutions()
@@ -125,6 +140,11 @@ class MatchEngine:
         self._log.emit(PeriodEndEvent if period == 1 else MatchEndEvent)
 
     def _play_action(self) -> None:
+        self._resolve_control_contact()
+        self._prepare_control()
+        if self.world.restart_side is not None:
+            self._pass()
+            return
         if self._set_piece is not None:
             set_piece, self._set_piece = self._set_piece, None
             self._take_set_piece(set_piece)
@@ -142,6 +162,7 @@ class MatchEngine:
             case "pass":
                 self._pass()
         self._transition_actions = max(0, self._transition_actions - 1)
+        self._resolve_control_contact()
 
     def _attacking_right(self, side: TeamSide) -> bool:
         return attacks_right(side, self._log.period)
@@ -153,12 +174,75 @@ class MatchEngine:
         return from_attacking_frame(frame_spot, attacking_right=self._attacking_right(side))
 
     def _shape(self, side: TeamSide) -> dict[str, Spot]:
-        return team_shape(
-            self._teams[side],
-            self._ball,
-            attacking_right=self._attacking_right(side),
-            in_possession=side == self._possession,
+        return self.world.positions(side)
+
+    @property
+    def _ball(self) -> Spot:
+        return self.world.ball
+
+    @_ball.setter
+    def _ball(self, spot: Spot) -> None:
+        self.world.place(spot)
+
+    def _advance_world(self, period: Period, ms: int, duration: int) -> None:
+        if self.world.control_contact is None:
+            self.world.owner_id = self._carrier.player_id
+            self.world.side = self._possession
+        self.world.advance(period, ms, duration)
+
+    def _resolve_control_contact(self) -> bool:
+        contact = self.world.control_contact
+        if contact is None or contact.player_id is None:
+            return False
+        self.world.control_contact = None
+        side: TeamSide = (
+            "home"
+            if any(
+                player.player_id == contact.player_id for player in self._teams["home"].on_pitch()
+            )
+            else "away"
         )
+        previous = self._carrier.player_id
+        self._change_possession(
+            side, self._teams[side].player(contact.player_id), self.world.ball, transition=True
+        )
+        self.world.owner_id, self.world.side = self._carrier.player_id, side
+        self._set_piece = None
+        return previous != self._carrier.player_id
+
+    def _prepare_control(
+        self, target: Spot | None = None, action: Literal["pass", "shot"] = "pass"
+    ) -> bool:
+        if self._resolve_control_contact():
+            return False
+        self.world.owner_id = self._carrier.player_id
+        self.world.side = self._possession
+        self.world.dead_ball = False
+        self.world.face_target = target
+        self.world.invalidate_targets()
+        # Even a distant restart taker must walk to the ball. No snap to the
+        # next event's origin; the recorded world advances during the approach.
+        for _ in range(300):
+            if self.world.ready(target):
+                break
+            self._log.advance(100)
+            if self._resolve_control_contact():
+                return False
+        if not self.world.ready(target):
+            return False
+        if target is not None:
+            self.world.prepare(action)
+            self._log.advance(200)
+            if self._resolve_control_contact():
+                return False
+        return self.world.ready(target)
+
+    def _run_flight(self) -> Contact:
+        while self.world.contact is None:
+            self._log.advance(STEP_MS)
+        contact = self.world.contact
+        self.world.finish_flight()
+        return contact
 
     def _nearest(self, side: TeamSide, spot: Spot, *, outfield_only: bool = False) -> PlayerState:
         shape = self._shape(side)
@@ -218,6 +302,9 @@ class MatchEngine:
             self._pressure = self._rng.uniform(0.0, 0.25)
             return False
         presser = self._nearest(defending_side, self._ball, outfield_only=True)
+        if self._shape(defending_side)[presser.player_id].distance_to(self._ball) > 2.5:
+            self._pressure = 0.0
+            return False
         self._log.emit(
             PressureEvent,
             team_id=defending_side,
@@ -235,6 +322,8 @@ class MatchEngine:
         tuning = self._tuning
         defending_side = opponent(self._possession)
         defender = self._nearest(defending_side, self._ball, outfield_only=True)
+        if self._shape(defending_side)[defender.player_id].distance_to(self._ball) > 2.0:
+            return
         attacker = self._carrier
         if self._commits_foul(defender, tuning.foul_share_of_challenges):
             self._foul(defender, defending_side, attacker)
@@ -274,6 +363,8 @@ class MatchEngine:
         for teammate in self._teams[side].on_pitch():
             if teammate is self._carrier:
                 continue
+            if self._receiver_offside(teammate):
+                continue
             spot = shape[teammate.player_id]
             distance = self._ball.distance_to(spot)
             if not tuning.pass_min_length_m <= distance <= tuning.pass_max_length_m:
@@ -285,6 +376,8 @@ class MatchEngine:
             )
             if forward_gain < -5:
                 weight *= 1 - tuning.backward_pass_directness_damping * directness
+            if self._lane_contacts(spot):
+                weight *= 0.12
             if teammate.is_goalkeeper:
                 weight *= (
                     tuning.goalkeeper_pass_weight_own_third
@@ -309,6 +402,15 @@ class MatchEngine:
         noise = tuning.pass_target_noise_m
         target = Spot(spot.x + self._rng.gauss(0, noise), spot.y + self._rng.gauss(0, noise))
         return receiver, clamp_to_pitch(target)
+
+    def _lane_contacts(self, target: Spot, *, apex_m: float = 0.0) -> list[LaneContact]:
+        defending_side = opponent(self._possession)
+        shape = self._shape(defending_side)
+        defenders = {
+            player.player_id: shape[player.player_id]
+            for player in self._teams[defending_side].on_pitch()
+        }
+        return lane_contacts(self._ball, target, defenders, apex_m=apex_m)
 
     def _pass_height(self, target: Spot) -> PassHeight:
         length = self._ball.distance_to(target)
@@ -348,31 +450,49 @@ class MatchEngine:
         return min(max(probability, tuning.min_pass_success), tuning.max_pass_success)
 
     def _deliver_pass(self, receiver: PlayerState, target: Spot, *, height: PassHeight) -> bool:
-        tuning = self._tuning
         side = self._possession
         passer = self._carrier
+        self.world.receive_target = receiver.player_id, target
+        if not self._prepare_control(target):
+            return False
         origin = self._ball
         length = origin.distance_to(target)
-        forward_gain = self._in_frame(target, side).x - self._in_frame(origin, side).x
-
-        outcome: PassOutcome = "complete"
-        end = target
-        if not self._is_forced_attack() and self._rng.random() >= self._pass_success_probability(
-            length, height, target
-        ):
-            failure = self._rng.random()
-            offside_possible = (
-                forward_gain > 5 and self._in_frame(target, side).x > FINAL_THIRD_START_M
-            )
-            if offside_possible and failure < tuning.offside_share:
-                outcome = "offside"
-            elif failure < tuning.offside_share + tuning.out_of_play_share:
-                outcome = "out"
-                end = self._out_of_play_spot(target)
-            else:
-                outcome = "incomplete"
-                end = origin.toward(target, self._rng.uniform(0.55, 1.0))
-
+        if self._lane_contacts(target) and self._is_forced_attack():
+            height = "high"
+        offside_players = {
+            player.player_id
+            for player in self._teams[side].on_pitch()
+            if self._receiver_offside(player)
+        }
+        flight = self.world.launch(
+            target,
+            action="pass",
+            receiver_id=receiver.player_id,
+            apex=pass_apex(length, height),
+        )
+        contact = self._run_flight()
+        recovered_by_passer = (
+            contact.outcome == "complete" and contact.player_id == passer.player_id
+        )
+        actual_receiver = (
+            self._teams[side].player(contact.player_id)
+            if contact.outcome == "complete"
+            and contact.player_id is not None
+            and not recovered_by_passer
+            else receiver
+        )
+        outcome: PassOutcome = (
+            "offside"
+            if contact.outcome == "complete"
+            and not recovered_by_passer
+            and actual_receiver.player_id in offside_players
+            else "complete"
+            if contact.outcome == "complete" and not recovered_by_passer
+            else "out"
+            if contact.outcome == "out"
+            else "incomplete"
+        )
+        end = contact.spot
         event = self._log.emit(
             PassEvent,
             team_id=side,
@@ -381,22 +501,26 @@ class MatchEngine:
             end_location=to_point(end),
             outcome=outcome,
             attrs=PassAttrs(
-                receiver_id=receiver.player_id,
-                length_m=round(length, 1),
+                receiver_id=actual_receiver.player_id,
+                length_m=round(origin.distance_to(end), 1),
                 height=height,
-                under_pressure=self._pressure >= tuning.pressured_threshold,
-                ball_speed_kmh=self._ball_speed_kmh(length, height),
+                under_pressure=self._pressure >= self._tuning.pressured_threshold,
+                ball_speed_kmh=round(flight.speed * 3.6, 1),
             ),
         )
-        pass_ms = self._uniform_ms(tuning.pass_duration_ms) + int(
-            length * tuning.pass_duration_per_m_ms
-        )
-        self._log.advance(min(pass_ms, tuning.max_pass_duration_ms))
+        if recovered_by_passer:
+            # A kick blocked back into the releasing player is a failed pass
+            # attempt followed by recovery, never a pass to themselves.
+            self._assist_pass = None
+            self._pressure = 0.5
+            return False
+        if contact.outcome == "intercepted" and contact.player_id is not None:
+            self._intercept_pass(LaneContact(contact.player_id, end, 1.0))
+            return False
 
         match outcome:
             case "complete":
-                self._carrier = receiver
-                self._ball = end
+                self._carrier = actual_receiver
                 self._pressure = 0.0
                 self._assist_pass = event
                 return True
@@ -407,6 +531,29 @@ class MatchEngine:
             case "incomplete":
                 self._loose_ball(end, interceptable=True)
         return False
+
+    def _receiver_offside(self, receiver: PlayerState) -> bool:
+        side = self._possession
+        receiver_depth = self._in_frame(self._shape(side)[receiver.player_id], side).x
+        depths = sorted(
+            (self._in_frame(spot, side).x for spot in self._shape(opponent(side)).values()),
+            reverse=True,
+        )
+        line = depths[1] if len(depths) > 1 else PITCH_LENGTH_M
+        return receiver_depth > max(HALFWAY_M, self._in_frame(self._ball, side).x, line) + 0.1
+
+    def _intercept_pass(self, contact: LaneContact) -> None:
+        side = opponent(self._possession)
+        interceptor = self._teams[side].player(contact.player_id)
+        self._ball = contact.spot
+        self._assist_pass = None
+        self._log.emit(
+            InterceptionEvent,
+            team_id=side,
+            player_id=interceptor.player_id,
+            location=to_point(contact.spot),
+        )
+        self._change_possession(side, interceptor, contact.spot, transition=True)
 
     def _ball_speed_kmh(self, length: float, height: PassHeight) -> float:
         base = 35.0 + length * 1.0 if height == "ground" else 45.0 + length * 0.6
@@ -447,6 +594,7 @@ class MatchEngine:
     def _carry(self) -> None:
         tuning = self._tuning
         side = self._possession
+        carrier = self._carrier
         frame_ball = self._in_frame(self._ball, side)
         pace_factor = 0.7 + 0.6 * self._carrier.player.traits.pace / 100
         if self._log.period == 2:
@@ -465,19 +613,25 @@ class MatchEngine:
             min(max(frame_ball.y + distance * math.sin(heading), 1.0), PITCH_WIDTH_M - 1.0),
         )
         end = self._from_frame(frame_end, side)
-        travelled = self._ball.distance_to(end)
-        self._log.emit(
-            CarryEvent,
-            team_id=side,
-            player_id=self._carrier.player_id,
-            location=to_point(self._ball),
-            end_location=to_point(end),
-            attrs=CarryAttrs(distance_m=round(travelled, 1)),
-        )
+        origin = self._ball
+        travelled = origin.distance_to(end)
+        self.world.carry_target = end
+        self.world.invalidate_targets()
         self._log.advance(
             tuning.carry_duration_base_ms + int(travelled * tuning.carry_duration_per_m_ms)
         )
-        self._ball = end
+        self.world.carry_target = None
+        end = self._ball
+        self._log.emit(
+            CarryEvent,
+            team_id=side,
+            player_id=carrier.player_id,
+            location=to_point(origin),
+            end_location=to_point(end),
+            attrs=CarryAttrs(distance_m=round(origin.distance_to(end), 1)),
+        )
+        if self._resolve_control_contact():
+            return
         challenge_probability = (
             tuning.carry_challenge_base + tuning.carry_challenge_pressure_weight * self._pressure
         )
@@ -491,6 +645,9 @@ class MatchEngine:
         side = self._possession
         defending_side = opponent(side)
         defender = self._nearest(defending_side, self._ball, outfield_only=True)
+        if self._shape(defending_side)[defender.player_id].distance_to(self._ball) > 2.0:
+            self._carry()
+            return
         attacker = self._carrier
         if self._commits_foul(defender, tuning.foul_share_of_challenges):
             self._foul(defender, defending_side, attacker)
@@ -511,9 +668,12 @@ class MatchEngine:
             return
         frame_ball = self._in_frame(self._ball, side)
         gain = self._rng.uniform(*tuning.dribble_gain_m)
-        self._ball = self._from_frame(
+        self.world.carry_target = self._from_frame(
             Spot(min(frame_ball.x + gain, PITCH_LENGTH_M - 2.0), frame_ball.y), side
         )
+        self.world.invalidate_targets()
+        self._log.advance(1500)
+        self.world.carry_target = None
         self._pressure = 0.0
 
     def _shoot(self, *, situation: ShotSituation, body_part: BodyPart | None = None) -> None:
@@ -521,6 +681,9 @@ class MatchEngine:
         side = self._possession
         defending_side = opponent(side)
         shooter = self._carrier
+        aim = self._shot_end_spot("goal")
+        if not self._prepare_control(aim, "shot"):
+            return
         origin = self._ball
         if body_part is None:
             crossed_in = self._assist_pass is not None and self._assist_pass.attrs.height == "high"
@@ -540,7 +703,33 @@ class MatchEngine:
             "goal" if self._is_forced_attack() else self._shot_outcome(goal_probability, situation)
         )
         assist = self._assist_pass if self._assisted_by_last_pass(shooter) else None
-        end_spot = self._shot_end_spot(outcome)
+        aim = self._shot_end_spot("goal" if outcome == "blocked" else outcome)
+        speed = self._shot_speed_kmh(body_part, shooter)
+        self.world.launch(
+            aim,
+            action="shot",
+            speed=speed / 3.6,
+            target_height=2.44 if outcome == "woodwork" else self._rng.uniform(0.25, 1.7),
+        )
+        contact = self._run_flight()
+        outcomes: dict[str, ShotOutcome] = {
+            "goal": "goal",
+            "saved": "saved",
+            "blocked": "blocked",
+            "woodwork": "woodwork",
+        }
+        outcome = outcomes.get(contact.outcome, "off_target")
+        end_spot = contact.spot
+        blocker = (
+            next(
+                player
+                for team in self._teams.values()
+                for player in team.on_pitch()
+                if player.player_id == contact.player_id
+            )
+            if contact.outcome == "blocked" and contact.player_id is not None
+            else None
+        )
 
         shot = self._log.emit(
             ShotEvent,
@@ -551,12 +740,11 @@ class MatchEngine:
             outcome=outcome,
             attrs=ShotAttrs(
                 body_part=body_part,
-                shot_speed_kmh=self._shot_speed_kmh(body_part, shooter),
+                shot_speed_kmh=speed,
                 situation=situation,
                 assist_event_id=assist.event_id if assist else None,
             ),
         )
-        self._log.advance(self._uniform_ms(tuning.shot_duration_ms))
         self._assist_pass = None
 
         match outcome:
@@ -575,25 +763,55 @@ class MatchEngine:
                 self._stoppage(tuning.goal_stoppage_ms)
                 self._kick_off(defending_side)
             case "saved":
-                if self._rng.random() < tuning.save_to_corner_share:
-                    self._ball_out(defending_side, keeper, self._shot_end_spot("off_target"))
-                else:
-                    self._change_possession(
-                        defending_side,
-                        keeper,
-                        self._goalkeeper_spot(defending_side),
-                        transition=False,
-                    )
+                self._change_possession(defending_side, keeper, end_spot, transition=False)
             case "blocked":
-                if self._rng.random() < tuning.block_to_corner_share:
-                    blocker = self._nearest(defending_side, origin, outfield_only=True)
-                    self._ball_out(defending_side, blocker, self._shot_end_spot("off_target"))
+                if blocker is not None and any(
+                    player.player_id == blocker.player_id for player in self._teams[side].on_pitch()
+                ):
+                    self._rebound(end_spot)
                 else:
-                    self._rebound(origin)
+                    self._blocked_shot(end_spot, shooter, blocker)
             case "off_target":
                 self._ball_out(side, shooter, end_spot)
             case "woodwork":
                 self._rebound(end_spot)
+
+    def _resolve_shot_lane(
+        self, outcome: ShotOutcome, body_part: BodyPart, situation: ShotSituation
+    ) -> tuple[ShotOutcome, Spot, PlayerState | None]:
+        target = self._shot_end_spot("goal" if outcome == "blocked" else outcome)
+        contacts = self._lane_contacts(target, apex_m=0.7 if body_part == "head" else 0.45)
+        if contacts and situation != "penalty":
+            contact = contacts[0]
+            blocker = self._teams[opponent(self._possession)].player(contact.player_id)
+            if blocker.is_goalkeeper:
+                return "saved", contact.spot, None
+            return "blocked", contact.spot, blocker
+        if outcome == "blocked":
+            # Don't invent a nearby block when no defender occupies the lane.
+            return "off_target", self._shot_end_spot("off_target"), None
+        return outcome, target, None
+
+    def _blocked_shot(self, spot: Spot, shooter: PlayerState, blocker: PlayerState | None) -> None:
+        side = opponent(self._possession)
+        last_touch = blocker or self._nearest(side, spot, outfield_only=True)
+        self._log.emit(
+            PressureEvent,
+            team_id=side,
+            player_id=last_touch.player_id,
+            location=to_point(spot),
+            attrs=PressureAttrs(target_player_id=shooter.player_id),
+        )
+        if self._rng.random() < self._tuning.block_to_corner_share:
+            self.world.owner_id, self.world.side = last_touch.player_id, side
+            self.world.launch(self._shot_end_spot("off_target"), action="pass", apex=0.6)
+            contact = self._run_flight()
+            if contact.outcome == "out":
+                self._ball_out(side, last_touch, contact.spot)
+            else:
+                self._loose_ball(contact.spot, interceptable=False)
+        else:
+            self._rebound(spot)
 
     def _assisted_by_last_pass(self, shooter: PlayerState) -> bool:
         return (
@@ -698,6 +916,8 @@ class MatchEngine:
         self._possession = side
         self._carrier = taker
         self._ball = CENTRE_SPOT
+        self.world.kickoff(taker.player_id, side)
+        self._prepare_control()
         self._pressure = 0.0
         self._transition_actions = 0
         self._assist_pass = None
@@ -817,7 +1037,12 @@ class MatchEngine:
         return self._rng.randint(*bounds)
 
     def _stoppage(self, bounds: MsRange) -> None:
+        self.world.dead_ball = True
+        self.world.resetting = self._ball.x <= 0.1 or self._ball.x >= 104.9
+        self.world.invalidate_targets()
         self._log.advance(self._uniform_ms(bounds))
+        self.world.dead_ball = False
+        self.world.resetting = False
         self._make_due_substitutions()
 
     def _plan_substitutions(self) -> None:
@@ -879,6 +1104,8 @@ class MatchEngine:
             in_range = tuning.pass_min_length_m <= distance <= tuning.forced_pass_max_length_m
             if teammate is self._carrier or not in_range:
                 continue
+            if self._receiver_offside(teammate):
+                continue
             gain = self._in_frame(spot, side).x - ball_depth
             if gain > best_gain:
                 best, best_gain = teammate, gain
@@ -938,13 +1165,3 @@ class MatchEngine:
 
     def _start_forced_attack(self, side: TeamSide) -> None:
         self._forced_attack = side
-        if self._possession == side:
-            return
-        interceptor = self._nearest(side, self._ball, outfield_only=True)
-        self._log.emit(
-            InterceptionEvent,
-            team_id=side,
-            player_id=interceptor.player_id,
-            location=to_point(self._ball),
-        )
-        self._change_possession(side, interceptor, self._ball, transition=True)

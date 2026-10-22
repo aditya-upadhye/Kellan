@@ -1,12 +1,17 @@
+# Scenario intent is exercised directly; outcomes still come from contacts.
+# pyright: reportPrivateUsage=false
 from pathlib import Path
+from random import Random
 
 import pytest
 from pydantic import ValidationError
 
 from matchlens.cli import main
 from matchlens.config import get_settings
+from matchlens.models.base import TeamSide
 from matchlens.models.clock import MS_PER_MINUTE
 from matchlens.models.events import CardEvent, GoalEvent, PressureEvent
+from matchlens.sim.engine import MatchEngine
 from matchlens.sim.match import (
     SimulatedMatch,
     build_scenario_metadata,
@@ -22,6 +27,8 @@ from matchlens.sim.scenarios import (
     scenario_names,
     scenario_time_ms,
 )
+from matchlens.sim.space import Spot
+from matchlens.sim.squad import PlayerState
 from matchlens.world.meridian import MERIDIAN_LEAGUE
 
 SCENARIOS_DIR = get_settings().scenarios_dir
@@ -115,28 +122,48 @@ def test_style_overrides_shape_the_match_metadata() -> None:
     assert metadata.away.style.press == MERIDIAN_LEAGUE.club("kestrel-bay").style.press
 
 
-@pytest.fixture(scope="module", params=[1, 2, 42])
-def comeback(request: pytest.FixtureRequest) -> SimulatedMatch:
-    return simulate_scenario(
-        MERIDIAN_LEAGUE, scenario("late_comeback"), request.param, with_tracking=False
+def test_scripted_attacks_activate_at_their_scheduled_times(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loaded = scenario("late_comeback")
+    engine = MatchEngine(
+        build_scenario_metadata(MERIDIAN_LEAGUE, loaded, 1),
+        Random(1),
+        script=loaded.injections,
+        record_tracking=False,
     )
+    calls: list[tuple[int, int, TeamSide]] = []
+    original = engine._start_forced_attack
+
+    def activate(side: TeamSide) -> None:
+        calls.append((engine._log.period, engine._log.ms, side))
+        original(side)
+
+    monkeypatch.setattr(engine, "_start_forced_attack", activate)
+    actions = [item for item in loaded.injections if isinstance(item, ScriptedAction)]
+    for action in actions:
+        engine._log.start_period(action.period)
+        engine._log.ms = action.due_ms
+        engine._run_due_script()
+    assert calls == [(action.period, action.due_ms, action.team) for action in actions]
+    assert not any(isinstance(event, GoalEvent) for event in engine._log.events)
 
 
-def test_forced_goals_arrive_at_their_scripted_times(comeback: SimulatedMatch) -> None:
-    goals = [event for event in comeback.events if isinstance(event, GoalEvent)]
-    for action in (
-        item for item in scenario("late_comeback").injections if isinstance(item, ScriptedAction)
-    ):
-        assert any(
-            goal.team_id == action.team
-            and goal.clock.period == action.period
-            and 0 <= goal.clock.ms - action.due_ms <= INJECTION_TOLERANCE_MS
-            for goal in goals
-        ), action
-
-
-def test_comeback_ends_with_the_hosts_level_or_ahead(comeback: SimulatedMatch) -> None:
-    assert comeback.score["home"] >= comeback.score["away"]
+def test_scripted_attack_preserves_existing_possession_and_ball_state() -> None:
+    engine = MatchEngine(
+        build_scenario_metadata(MERIDIAN_LEAGUE, scenario("late_comeback"), 1),
+        Random(1),
+        record_tracking=False,
+    )
+    engine._possession = "away"
+    engine._carrier = engine._teams["away"].outfield()[0]
+    carrier, ball = engine._carrier, engine.world.ball
+    engine._start_forced_attack("home")
+    assert engine._forced_attack == "home"
+    assert engine._possession == "away"
+    assert engine._carrier == carrier
+    assert engine.world.ball == ball
+    assert not engine._log.events
 
 
 @pytest.fixture(scope="module", params=[1, 2, 3])
@@ -161,42 +188,31 @@ def test_scripted_red_card_is_shown_on_time(ten_men: SimulatedMatch) -> None:
     assert len(scripted) == 1
 
 
-def late_home_pressures(match: SimulatedMatch) -> int:
-    return sum(
-        1
-        for event in match.events
-        if isinstance(event, PressureEvent)
-        and event.team_id == "home"
-        and event.clock.period == 2
-        and event.clock.ms >= 15 * MS_PER_MINUTE
-    )
+def test_style_shift_raises_the_home_press(monkeypatch: pytest.MonkeyPatch) -> None:
+    loaded = scenario("red_card_press")
+    shift = next(item for item in loaded.injections if isinstance(item, StyleShift))
 
+    def no_foul(_player: PlayerState, _chance: float) -> bool:
+        return False
 
-def test_style_shift_raises_the_home_press() -> None:
-    with_shift = scenario("red_card_press")
-    without_shift = with_shift.model_copy(
-        update={
-            "injections": [
-                item for item in with_shift.injections if not isinstance(item, StyleShift)
-            ]
-        }
-    )
-    seeds = (1, 2, 3)
-
-    shifted = sum(
-        late_home_pressures(
-            simulate_scenario(MERIDIAN_LEAGUE, with_shift, seed, with_tracking=False)
+    counts: list[int] = []
+    for shifted in (False, True):
+        engine = MatchEngine(
+            build_scenario_metadata(MERIDIAN_LEAGUE, loaded, 1), Random(42), record_tracking=False
         )
-        for seed in seeds
-    )
-    unshifted = sum(
-        late_home_pressures(
-            simulate_scenario(MERIDIAN_LEAGUE, without_shift, seed, with_tracking=False)
-        )
-        for seed in seeds
-    )
-
-    assert shifted > unshifted * 1.2
+        engine.world.start_period(1)
+        engine._possession = "away"
+        engine._carrier = engine._teams["away"].outfield()[0]
+        engine.world.place(Spot(70, 34))
+        presser = engine._teams["home"].outfield()[0]
+        engine.world.bodies[presser.player_id].spot = Spot(71, 34)
+        monkeypatch.setattr(engine, "_commits_foul", no_foul)
+        if shifted:
+            engine._shift_style(shift)
+        for _ in range(1000):
+            engine._apply_defensive_pressure()
+        counts.append(sum(isinstance(event, PressureEvent) for event in engine._log.events))
+    assert counts[1] > counts[0] * 1.2
 
 
 def test_cli_simulates_a_scenario(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

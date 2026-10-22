@@ -3,6 +3,8 @@ import { InsightInspector, InsightShelf } from './InsightInspector'
 import { evidenceKey } from './evidenceFormatting'
 import { useInsightEvidence } from './useInsightEvidence'
 import { EvidenceMarks2D } from './pitch/EvidenceMarks2D'
+import { MatchTransport } from './MatchTransport'
+import type { CameraView } from './pitch/PitchScene'
 import type { PitchEvidence } from './pitch/evidence'
 import type { MatchEvent } from './generated/MatchEvent'
 import type { MatchMetadata } from './generated/MatchMetadata'
@@ -33,6 +35,7 @@ interface MatchResponse {
   speed: PlaybackSpeed
   error: string | null
   fault_inject_next?: boolean
+  insight_waiting?: boolean
 }
 
 interface MatchStateResponse {
@@ -104,7 +107,7 @@ function App() {
   const [frame, setFrame] = useState<TrackingFrame | null>(null)
   const [frameHistory, setFrameHistory] = useState<TrackingFrame[]>([])
   const [pitchView, setPitchView] = useState<'2d' | '3d'>('3d')
-  const [camera, setCamera] = useState<'broadcast' | 'sideline' | 'goal'>('broadcast')
+  const [camera, setCamera] = useState<CameraView>('broadcast')
   const [replayFrames, setReplayFrames] = useState<TrackingFrame[] | null>(null)
   const [replayIndex, setReplayIndex] = useState(0)
   const [replayPaused, setReplayPaused] = useState(false)
@@ -217,6 +220,7 @@ function App() {
           const clockMs = data.clock_ms
           return {
             ...current,
+            insight_waiting: data.insight_waiting === true,
             status:
               nextStatus === 'starting' ||
               nextStatus === 'running' ||
@@ -242,7 +246,7 @@ function App() {
       }
       if (envelope.kind === 'frame' && isRecord(data)) {
         const nextFrame = data as unknown as TrackingFrame
-        setFrameHistory((current) => [...current.slice(-59), nextFrame])
+        setFrameHistory((current) => current.at(-1)?.frame_seq === nextFrame.frame_seq ? current : [...current, nextFrame])
         setFrame(nextFrame)
         setMatch((current) =>
           current ? { ...current, clock: nextFrame.clock } : current,
@@ -307,7 +311,7 @@ function App() {
         else setReplayFrames(null)
       }
       else setReplayIndex(replayIndex + 1)
-    }, 1000)
+    }, replayFrames[replayIndex + 1]?.interval_ms ?? 1000)
     return () => window.clearTimeout(timer)
   }, [replayFrames, replayIndex, replayPaused, inspection.data])
 
@@ -324,6 +328,10 @@ function App() {
   const sidePanelCues = cues.filter((cue) => cue.slot === 'side_panel')
   const visibleRecaps = recaps.filter((recap) => recap.profile_id === primaryProfileId)
   const displayedFrame = replayFrames?.[replayIndex] ?? frame
+  const players = useMemo(() => [...(match?.metadata.home.players ?? []), ...(match?.metadata.away.players ?? [])], [match?.metadata.home.players, match?.metadata.away.players])
+  const playerById = useMemo(() => new Map(players.map(player => [player.player_id, player])), [players])
+  const transportFrames = inspection.data && replayFrames ? replayFrames : frameHistory
+  const frameDuration = displayedFrame?.interval_ms || 1000
   const displayedTrail = replayFrames
     ? replayFrames.slice(Math.max(0, replayIndex - 13), replayIndex + 1)
     : frameHistory.slice(-14)
@@ -365,6 +373,19 @@ function App() {
     setReplayIndex(index < 0 ? replayFrames.length - 1 : index)
     setFocusedEventId(eventId); setReplayPaused(true)
     setReplaySeekToken(value => value + 1)
+  }
+
+  function seekMatch(index: number) {
+    if (!transportFrames.length) return
+    setReplayFrames(transportFrames)
+    setReplayIndex(Math.max(0, Math.min(transportFrames.length - 1, index)))
+    setReplayPaused(true); setFocusedEventId(null)
+    setReplaySeekToken(value => value + 1)
+  }
+
+  function toggleViewPlayback() {
+    if (!replayFrames) seekMatch(frameHistory.length - 1)
+    else setReplayPaused(!replayPaused)
   }
 
   const removeCue = useCallback((cueId: string) => {
@@ -649,15 +670,14 @@ function App() {
                     <button type="button" className={pitchView === '3d' ? 'active' : ''} aria-pressed={pitchView === '3d'} onClick={() => setPitchView('3d')}>3D VIEW</button>
                     <button type="button" className={pitchView === '2d' ? 'active' : ''} aria-pressed={pitchView === '2d'} onClick={() => setPitchView('2d')}>2D VIEW</button>
                   </div>
-                  {pitchView === '3d' && <label>CAMERA <select aria-label="3D camera angle" value={camera} onChange={(event) => setCamera(event.target.value as typeof camera)}><option value="broadcast">Broadcast</option><option value="sideline">Sideline</option><option value="goal">Goal end</option></select></label>}
-                  <button type="button" className="pitch-replay-button" disabled={frameHistory.length < 2 && !replayFrames} onClick={() => { if (replayFrames) { closeInspection(); return } inspection.close(); setReplayFrames(frameHistory.slice(-15)); setReplayIndex(0); setReplayPaused(false) }}>{replayFrames ? 'RETURN LIVE' : 'REPLAY LAST 15s'}</button>
+                  {pitchView === '3d' && <label>CAMERA <select aria-label="3D camera angle" value={camera} onChange={(event) => setCamera(event.target.value as typeof camera)}><option value="broadcast">Broadcast</option><option value="sideline">Close sideline</option><option value="goal">Goal end</option><option value="wide">Full pitch</option></select></label>}
                 </div>
                 <div className="panel-heading">
                   <div><span className="live-indicator" /> {inspection.data && replayFrames ? 'INSIGHT REPLAY' : replayFrames ? 'TRACKING REPLAY' : 'LIVE PITCH'} <span className="panel-divider">·</span> PERIOD {displayedFrame?.clock.period ?? match.clock.period}</div>
                   <span className="frame-label">{replayFrames ? `REPLAY ${formatClock(displayedFrame?.clock.period ?? 1, displayedFrame?.clock.ms ?? 0)}` : frame ? `FRAME ${frame.frame_seq.toString().padStart(4, '0')}` : 'AWAITING TRACKING'}</span>
                 </div>
                 <div className="pitch-wrap">
-                  {pitchView === '3d' ? <Suspense fallback={<div className="pitch pitch-3d pitch-scene-loading" role="status">Loading 3D stadium...</div>}><Pitch3D frame={displayedFrame} trail={displayedTrail} camera={camera} homeColor={match.metadata.home.colors.primary} awayColor={match.metadata.away.colors.primary} frameDurationMs={replayFrames ? 1000 : speed === 'max' ? 60 : 1000 / speed} replaying={replayFrames !== null} evidence={pitchEvidence} seekToken={replaySeekToken} /></Suspense> : <svg className="pitch" viewBox="0 0 105 68" role="img" aria-label="Live top-down view of the football pitch">
+                  {pitchView === '3d' ? <Suspense fallback={<div className="pitch pitch-3d pitch-scene-loading" role="status">Loading 3D stadium...</div>}><Pitch3D frame={displayedFrame} trail={displayedTrail} camera={camera} homeColor={match.metadata.home.colors.primary} awayColor={match.metadata.away.colors.primary} players={players} frameDurationMs={replayPaused && replayFrames ? 0 : replayFrames ? frameDuration : speed === 'max' ? 16 : frameDuration / speed} replaying={replayFrames !== null} evidence={pitchEvidence} seekToken={replaySeekToken} /></Suspense> : <svg className="pitch" viewBox="0 0 105 68" role="img" aria-label="Live top-down view of the football pitch">
                     <defs><pattern id="mowing" width="15" height="68" patternUnits="userSpaceOnUse"><rect width="7.5" height="68" fill="#ffffff" opacity=".035" /></pattern></defs>
                     <rect x="0" y="0" width="105" height="68" rx="1.5" className="pitch-grass" />
                     <rect x="0" y="0" width="105" height="68" rx="1.5" fill="url(#mowing)" />
@@ -679,8 +699,9 @@ function App() {
                       const home = player.player_id.startsWith('h')
                       const team = home ? match.metadata.home : match.metadata.away
                       return <g key={player.player_id} className="player-marker" transform={`translate(${player.x} ${player.y})`}>
+                        <title>{team.short_name} #{playerById.get(player.player_id)?.number ?? '?'} {playerById.get(player.player_id)?.name ?? 'Unknown player'}</title>
                         <circle r="1.6" fill={team.colors.primary} stroke={team.colors.secondary} strokeWidth=".45" />
-                        <text y=".55" textAnchor="middle">{player.player_id.slice(1)}</text>
+                        <text y=".55" textAnchor="middle">{playerById.get(player.player_id)?.number ?? '?'}</text>
                       </g>
                     })}
                     {pitchEvidence && displayedFrame && <EvidenceMarks2D evidence={pitchEvidence} clockMs={displayedFrame.clock.ms} />}
@@ -694,7 +715,9 @@ function App() {
                     ))}
                   </div>
                 </div>
+                <MatchTransport frames={transportFrames} current={displayedFrame} replaying={replayFrames !== null} paused={replayPaused} evidence={Boolean(inspection.data && replayFrames)} onSeek={seekMatch} onToggle={toggleViewPlayback} onLive={closeInspection} />
                 <div className="pitch-legend"><span><i className="legend-home" />{match.metadata.home.short_name}</span><span><i className="legend-away" />{match.metadata.away.short_name}</span><span><i className="legend-ball" />BALL</span>{pitchEvidence && <span className="evidence-legend">GOLD: SOURCE / TEAL: CONTEXT</span>}<span className="ball-speed">{replayFrames ? 'REPLAY' : ''} BALL SPEED <b>{displayedFrame ? `${displayedFrame.ball_speed_kmh.toFixed(1)} km/h` : '—'}</b></span></div>
+                <details className="match-squads"><summary>PLAYERS ON THE PITCH · SHIRT NUMBERS &amp; NAMES</summary><div className="match-squad-columns">{[match.metadata.home, match.metadata.away].map(team => <section key={team.team_id}><h3><i style={{ background: team.colors.primary }} />{team.name}</h3><ul>{(team.players ?? []).filter(player => displayedFrame ? displayedFrame.players.some(point => point.player_id === player.player_id) : player.starter).map(player => <li key={player.player_id}><b>{player.number}</b><span>{player.name}</span><small>{player.role}</small></li>)}</ul></section>)}</div><p>Fictional players. Lineups follow the displayed footage.</p></details>
               </div>
 
               <div className="metrics-panel">
@@ -723,6 +746,7 @@ function App() {
               />}
               <div className="control-panel">
                 <div className="panel-heading"><span>MATCH CONTROLS</span><span className="control-live">● {match.status.toUpperCase()}</span></div>
+                {match.insight_waiting && <p className="insight-waiting" role="status">Preparing the next insight. Match playback will resume automatically.</p>}
                 <div className="control-buttons">
                   <button className="play-control" onClick={() => void control(match.status === 'paused' ? 'resume' : 'pause')} disabled={match.status === 'complete' || match.status === 'starting'} aria-label={match.status === 'paused' ? 'Resume match' : 'Pause match'}>
                     {match.status === 'paused' ? <span className="play-icon">▶</span> : <span className="pause-icon"><i /><i /></span>}
@@ -739,7 +763,7 @@ function App() {
 
               <div className="timeline-panel">
                 <div className="panel-heading"><span>MATCH FEED</span><span className="feed-count">{events.length.toString().padStart(2, '0')}</span></div>
-                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">•</span><p>Match events will appear here as the game unfolds.</p></div>}
+                {timeline.length ? <div className="event-list">{timeline.map((event) => <EventRow key={event.seq} event={event} homeName={match.metadata.home.short_name} awayName={match.metadata.away.short_name} playerLabel={event.player_id ? playerById.has(event.player_id) ? `#${playerById.get(event.player_id)!.number} ${playerById.get(event.player_id)!.name}` : 'Unknown player' : undefined} />)}</div> : <div className="feed-empty"><span className="feed-empty-mark">•</span><p>Match events will appear here as the game unfolds.</p></div>}
               </div>
               <section className="agent-panel" aria-label="Agent activity">
                 <div className="panel-heading">
@@ -1004,13 +1028,13 @@ function spanishEventSummary(
   return `${spanishEventLabels[event.type] ?? 'Acción'}${team ? ` · ${team}` : ''}.`
 }
 
-function EventRow({ event, homeName, awayName }: { event: MatchEventData; homeName: string; awayName: string }) {
+function EventRow({ event, homeName, awayName, playerLabel }: { event: MatchEventData; homeName: string; awayName: string; playerLabel?: string }) {
   const isGoal = event.type === 'goal'
   const label = event.type.replaceAll('_', ' ').toUpperCase()
   return <article className={`event-row${isGoal ? ' goal-event' : ''}`}>
     <span className="event-time">{formatClock(event.clock.period, event.clock.ms)}</span>
     <span className="event-symbol">{isGoal ? '⚽' : event.type === 'card' ? '▰' : event.type === 'shot' ? '↗' : '·'}</span>
-    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{event.player_id ? ` · ${event.player_id.toUpperCase()}` : ''}</span></div>
+    <div className="event-copy"><strong>{isGoal ? 'GOAL' : label}</strong><span>{event.team_id === 'home' ? homeName : event.team_id === 'away' ? awayName : 'MATCH'}{playerLabel ? ` · ${playerLabel}` : ''}</span></div>
   </article>
 }
 

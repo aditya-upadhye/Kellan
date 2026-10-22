@@ -14,11 +14,11 @@ class EngineTuning:
     final_third_pressure_factor: float = 1.3
 
     shot_min_progress_m: float = 70.0
-    shot_weight_scale: float = 2.5
+    shot_weight_scale: float = 10.5
     shot_xg_exponent: float = 1.0
-    pass_weight: float = 0.7
+    pass_weight: float = 1.05
     pass_possession_style_weight: float = 0.5
-    carry_weight: float = 0.24
+    carry_weight: float = 0.2
     carry_pressure_damping: float = 0.5
     transition_carry_boost: float = 0.6
     dribble_weight: float = 0.06
@@ -32,7 +32,7 @@ class EngineTuning:
     backward_pass_directness_damping: float = 0.6
     goalkeeper_pass_weight_own_third: float = 0.15
     goalkeeper_pass_weight_elsewhere: float = 0.01
-    pass_target_noise_m: float = 1.5
+    pass_target_noise_m: float = 0.75
 
     pass_base_success: float = 0.95
     pass_free_length_m: float = 12.0
@@ -56,11 +56,11 @@ class EngineTuning:
     carry_heading_sd_rad: float = 0.6
     final_third_carry_factor: float = 0.6
     second_half_pace_factor: float = 0.95
-    carry_challenge_base: float = 0.14
+    carry_challenge_base: float = 0.25
     carry_challenge_pressure_weight: float = 0.15
     penalty_area_challenge_factor: float = 1.5
-    foul_share_of_challenges: float = 0.26
-    pressure_foul_share: float = 0.015
+    foul_share_of_challenges: float = 0.4
+    pressure_foul_share: float = 0.03
     penalty_area_foul_factor: float = 0.1
     booked_player_foul_factor: float = 0.5
     tackle_base_win: float = 0.55

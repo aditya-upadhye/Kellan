@@ -15,6 +15,7 @@ from matchlens.models.events import (
     ShotEvent,
 )
 from matchlens.models.pitch import PITCH_LENGTH_M, PITCH_WIDTH_M, Point
+from matchlens.sim import engine as engine_module
 from matchlens.sim.match import simulate_scenario
 from matchlens.sim.scenarios import load_scenario, scenario_names
 from matchlens.sim.tracking import MAX_REPORTED_SPEED_KMH
@@ -27,6 +28,15 @@ if TYPE_CHECKING:
 SCENARIOS_DIR = get_settings().scenarios_dir
 seeds = st.integers(min_value=0, max_value=2**31 - 1)
 scenarios = st.sampled_from(scenario_names(SCENARIOS_DIR))
+
+
+@pytest.fixture(autouse=True)
+def bounded_property_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    # These properties concern local stream coherence and coordinate/speed
+    # bounds, including the period transition. Keep all generated examples;
+    # full-match totals, substitutions and workload have dedicated tests, and
+    # the 50-seed realism sweep still plays complete regulation matches.
+    monkeypatch.setattr(engine_module, "REGULATION_PERIOD_MS", 60_000)
 
 
 def on_pitch(point: Point) -> bool:

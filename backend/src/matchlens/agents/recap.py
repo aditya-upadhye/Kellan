@@ -92,11 +92,13 @@ class RecapAgent:
         strong_model: str,
         match_id: str,
         record_trace: Callable[[AgentTrace], None],
+        request_timeout_seconds: float = 30.0,
     ) -> None:
         self._client = client
         self._strong_model = strong_model
         self._match_id = match_id
         self._record_trace = record_trace
+        self._request_timeout_seconds = request_timeout_seconds
 
     async def create_recap(
         self,
@@ -167,14 +169,14 @@ class RecapAgent:
                         self._strong_model,
                         match_id=self._match_id,
                     ),
-                    timeout=8,
+                    timeout=self._request_timeout_seconds,
                 )
                 response = RecapResponse.model_validate(payload)
             except LLMDisabledError:
                 self._trace(sources, "recap", "fallback", "LLM mode is off", started)
                 return await self._fallback(context)
             except Exception as error:
-                self._trace(sources, "recap", "error", type(error).__name__, started)
+                self._trace(sources, "recap", "error", f"{type(error).__name__}: {error}", started)
                 return await self._fallback(context)
 
             candidate, errors = await self._candidate(response, context)

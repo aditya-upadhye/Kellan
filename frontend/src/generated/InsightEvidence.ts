@@ -132,11 +132,15 @@ export interface EvidenceReplay {
 export interface TrackingFrame {
   match_id: string
   frame_seq: number
+  interval_ms: number
   clock: MatchClock
   ball: Point
   ball_speed_kmh: number
   players: PlayerPos[]
   ball_trajectory: BallSample[]
+  player_trajectories: {
+    [k: string]: [number, number, number, number][]
+  }
 }
 export interface Point {
   x: number
@@ -156,10 +160,11 @@ export interface BallSample {
   x: number
   y: number
   height_m: number
-  action: 'pass' | 'carry' | 'shot' | 'hold'
+  action: 'pass' | 'carry' | 'shot' | 'hold' | 'receive' | 'block' | 'save'
   actor_id: string | null
   event_id: string | null
   progress: number
+  preparing: boolean
 }
 export interface KickoffEvent {
   event_id: string

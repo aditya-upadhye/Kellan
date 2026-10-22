@@ -31,7 +31,10 @@
             "pass",
             "carry",
             "shot",
-            "hold"
+            "hold",
+            "receive",
+            "block",
+            "save"
           ],
           "type": "string"
         },
@@ -60,6 +63,9 @@
           "maximum": 1.0,
           "minimum": 0.0,
           "type": "number"
+        },
+        "preparing": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -70,7 +76,8 @@
         "action",
         "actor_id",
         "event_id",
-        "progress"
+        "progress",
+        "preparing"
       ],
       "title": "BallSample",
       "type": "object"
@@ -160,6 +167,11 @@
       "minimum": 1,
       "type": "integer"
     },
+    "interval_ms": {
+      "maximum": 1000,
+      "minimum": 0,
+      "type": "integer"
+    },
     "clock": {
       "$ref": "#/$defs/MatchClock"
     },
@@ -181,16 +193,43 @@
         "$ref": "#/$defs/BallSample"
       },
       "type": "array"
+    },
+    "player_trajectories": {
+      "additionalProperties": {
+        "items": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        "type": "array"
+      },
+      "type": "object"
     }
   },
   "required": [
     "match_id",
     "frame_seq",
+    "interval_ms",
     "clock",
     "ball",
     "ball_speed_kmh",
     "players",
-    "ball_trajectory"
+    "ball_trajectory",
+    "player_trajectories"
   ],
   "type": "object"
 }

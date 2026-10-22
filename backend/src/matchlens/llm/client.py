@@ -160,6 +160,8 @@ class FoundryLLMClient:
         )
         self._message_type = message_type
         self._record_trace = record_trace if record_trace is not None else _ignore_trace
+        self._request_timeout = settings.llm_request_timeout_seconds
+        self._request_attempts = settings.llm_request_attempts
 
     async def complete_json(
         self,
@@ -198,6 +200,10 @@ class FoundryLLMClient:
                 tokens_in = response.usage_details.get("input_token_count", tokens_in)
                 tokens_out = response.usage_details.get("output_token_count", 0)
             return result
+        except asyncio.CancelledError:
+            status = "rejected"
+            detail = f"model={model}; CancelledError: caller cancelled before completion"
+            raise
         except Exception as error:
             status = "error"
             detail = f"{type(error).__name__}: {error}"[:200]
@@ -220,17 +226,26 @@ class FoundryLLMClient:
     async def _complete_with_retry(
         self, messages: list[Any], options: dict[str, Any]
     ) -> tuple[FoundryResponse, bool]:
-        started = asyncio.get_running_loop().time()
-        for attempt in range(2):
+        # Each retry needs its own usable budget. A first-attempt timeout must
+        # not leave the retry with only a few milliseconds to complete.
+        attempts = getattr(self, "_request_attempts", 2)
+        timeout = getattr(self, "_request_timeout", 12.0)
+        for attempt in range(attempts):
             try:
                 response = await asyncio.wait_for(
                     self._client.get_response(messages, options=options),
-                    timeout=max(0.01, 8 - (asyncio.get_running_loop().time() - started)),
+                    timeout=timeout,
                 )
                 return response, attempt > 0
             except Exception as error:
-                if attempt or not _is_transport_error(error):
+                if attempt + 1 >= attempts or not _is_transport_error(error):
+                    if isinstance(error, TimeoutError):
+                        raise TimeoutError(
+                            f"Foundry request exceeded {timeout:g}s per attempt; "
+                            f"attempts={attempt + 1}"
+                        ) from error
                     raise
+                await asyncio.sleep(0.25 * (attempt + 1))
         raise RuntimeError("Foundry request did not return a response")
 
 

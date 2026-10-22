@@ -1,12 +1,11 @@
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import asdict
 from statistics import mean
 
 import pytest
 
-from matchlens.config import get_settings
-from matchlens.sim.match import simulate_scenario
-from matchlens.sim.scenarios import load_scenario
-from matchlens.world.meridian import MERIDIAN_LEAGUE
-from support.match_stats import MatchSummary
+from support.match_stats import MatchSummary, balanced_summary
 
 REALISM_SEEDS = range(1, 51)
 POSSESSION_BOUNDS_PCT = (35.0, 65.0)
@@ -17,13 +16,16 @@ pytestmark = pytest.mark.slow
 
 @pytest.fixture(scope="module")
 def balanced_summaries() -> list[MatchSummary]:
-    scenario = load_scenario("balanced", get_settings().scenarios_dir)
-    return [
-        MatchSummary.of(
-            simulate_scenario(MERIDIAN_LEAGUE, scenario, seed, with_tracking=False).events
-        )
-        for seed in REALISM_SEEDS
-    ]
+    # Keep all 50 seeds and every existing statistical bound. Each fixture is
+    # independent, so bounded workers avoid serializing the expensive physics.
+    with ProcessPoolExecutor(max_workers=min(8, os.cpu_count() or 1)) as pool:
+        futures = {pool.submit(balanced_summary, seed): seed for seed in REALISM_SEEDS}
+        summaries: dict[int, MatchSummary] = {}
+        for future in as_completed(futures):
+            seed = futures[future]
+            summaries[seed] = future.result()
+            print(f"seed={seed} {asdict(summaries[seed])}", flush=True)
+        return [summaries[seed] for seed in REALISM_SEEDS]
 
 
 @pytest.mark.parametrize(
@@ -50,4 +52,9 @@ def test_every_balanced_match_splits_possession_within_bounds(
 ) -> None:
     low, high = POSSESSION_BOUNDS_PCT
 
-    assert all(low <= summary.home_possession_pct <= high for summary in balanced_summaries)
+    outliers = [
+        (seed, asdict(summary))
+        for seed, summary in zip(REALISM_SEEDS, balanced_summaries, strict=True)
+        if not low <= summary.home_possession_pct <= high
+    ]
+    assert not outliers, outliers

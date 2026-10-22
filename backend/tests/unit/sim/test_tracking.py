@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -88,7 +89,9 @@ def frames_of_period(match: SimulatedMatch, period: int) -> list[TrackingFrame]:
     return [frame for frame in match.frames if frame.clock.period == period]
 
 
-def test_frames_tick_at_one_hertz_through_each_period(tracked_match: SimulatedMatch) -> None:
+def test_frames_include_regular_ticks_and_precise_contact_intervals(
+    tracked_match: SimulatedMatch,
+) -> None:
     assert [frame.frame_seq for frame in tracked_match.frames] == list(
         range(1, len(tracked_match.frames) + 1)
     )
@@ -98,9 +101,13 @@ def test_frames_tick_at_one_hertz_through_each_period(tracked_match: SimulatedMa
             event.clock.ms for event in tracked_match.events if event.clock.period == period
         )
 
-        assert [frame.clock.ms for frame in frames] == list(
-            range(0, frames[-1].clock.ms + 1, FRAME_INTERVAL_MS)
-        )
+        assert [
+            frame.clock.ms for frame in frames if frame.clock.ms % FRAME_INTERVAL_MS == 0
+        ] == list(range(0, frames[-1].clock.ms + 1, FRAME_INTERVAL_MS))
+        assert frames[0].interval_ms == 0
+        for previous, current in pairwise(frames):
+            assert 0 < current.clock.ms - previous.clock.ms <= FRAME_INTERVAL_MS
+            assert current.interval_ms == current.clock.ms - previous.clock.ms
         assert period_end_ms - FRAME_INTERVAL_MS < frames[-1].clock.ms <= period_end_ms
 
 
@@ -136,9 +143,15 @@ def test_reported_speed_matches_movement_between_frames(tracked_match: Simulated
             assert player.speed_kmh <= MAX_REPORTED_SPEED_KMH
             if frame.clock.ms == 0 or player.player_id not in previous:
                 continue
-            moved_kmh = math.dist(previous[player.player_id], current[player.player_id]) * 3.6
+            # Frame intervals include subsecond kicks/contacts. Reported
+            # movement must use elapsed time, rather than assuming one second.
+            moved = math.dist(previous[player.player_id], current[player.player_id])
+            assert moved <= MAX_REPORTED_SPEED_KMH / 3.6 * frame.interval_ms / 1000 + 0.01
             assert player.speed_kmh == pytest.approx(
-                min(moved_kmh, MAX_REPORTED_SPEED_KMH), abs=0.06
+                moved * 3.6 * 1000 / frame.interval_ms,
+                # Both endpoints are rounded to millimetres. The same spatial
+                # quantization has a larger speed effect over short intervals.
+                abs=0.005 + math.sqrt(2) * 0.001 * 3.6 * 1000 / frame.interval_ms,
             )
         previous = current
 
@@ -150,12 +163,13 @@ def test_movement_looks_like_football(tracked_match: SimulatedMatch) -> None:
         for player in team.players
     }
     distance_m: dict[str, float] = defaultdict(float)
-    seconds_played: dict[str, int] = defaultdict(int)
+    seconds_played: dict[str, float] = defaultdict(float)
     top_speed: dict[str, float] = defaultdict(float)
     for frame in tracked_match.frames:
         for player in frame.players:
-            distance_m[player.player_id] += player.speed_kmh / 3.6
-            seconds_played[player.player_id] += 1
+            seconds = frame.interval_ms / 1000
+            distance_m[player.player_id] += player.speed_kmh / 3.6 * seconds
+            seconds_played[player.player_id] += seconds
             top_speed[player.player_id] = max(top_speed[player.player_id], player.speed_kmh)
     full_match_outfield = [
         player_id
@@ -164,7 +178,15 @@ def test_movement_looks_like_football(tracked_match: SimulatedMatch) -> None:
     ]
 
     assert full_match_outfield
-    assert all(7_000 <= distance_m[player_id] <= 13_000 for player_id in full_match_outfield)
+    # The fixture includes added time in both halves. Compare workload per
+    # 90 minutes, rather than treating a longer fixture as exactly 90 minutes.
+    distance_per_90 = {
+        player_id: distance_m[player_id] * 90 * 60 / seconds_played[player_id]
+        for player_id in full_match_outfield
+    }
+    assert all(7_000 <= distance <= 13_000 for distance in distance_per_90.values()), (
+        distance_per_90
+    )
     assert all(27.0 <= top_speed[player_id] <= 36.0 for player_id in full_match_outfield)
     assert max(frame.ball_speed_kmh for frame in tracked_match.frames) < 140.0
 
