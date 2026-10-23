@@ -42,7 +42,7 @@ format: ## Auto-format and auto-fix the backend
 test: backend-test frontend-test ## Run all offline test suites
 
 backend-test: ## Pytest with coverage, Azure tests excluded
-	$(UV_RUN) pytest --cov
+	$(UV_RUN) pytest --cov --durations=20
 
 backend-test-fast: ## Pytest without the slow simulation tests
 	$(UV_RUN) pytest -m "not azure and not slow"

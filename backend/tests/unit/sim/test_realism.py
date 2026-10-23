@@ -7,7 +7,12 @@ import pytest
 
 from support.match_stats import MatchSummary, balanced_summary
 
-REALISM_SEEDS = range(1, 51)
+# PR CI can choose a small, deterministic sample while the scheduled workflow
+# runs the full 50-seed sweep. Local runs keep the full sweep by default.
+REALISM_SEED_COUNT = int(os.environ.get("KELLAN_REALISM_SEED_COUNT", "50"))
+if REALISM_SEED_COUNT < 1:
+    raise ValueError("KELLAN_REALISM_SEED_COUNT must be at least 1")
+REALISM_SEEDS = range(1, REALISM_SEED_COUNT + 1)
 POSSESSION_BOUNDS_PCT = (35.0, 65.0)
 
 
@@ -16,9 +21,9 @@ pytestmark = pytest.mark.slow
 
 @pytest.fixture(scope="module")
 def balanced_summaries() -> list[MatchSummary]:
-    # Keep all 50 seeds and every existing statistical bound. Each fixture is
-    # independent, so bounded workers avoid serializing the expensive physics.
-    with ProcessPoolExecutor(max_workers=min(8, os.cpu_count() or 1)) as pool:
+    # Each fixture is independent, so bounded workers avoid serializing the
+    # expensive physics without oversubscribing standard GitHub-hosted runners.
+    with ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 1)) as pool:
         futures = {pool.submit(balanced_summary, seed): seed for seed in REALISM_SEEDS}
         summaries: dict[int, MatchSummary] = {}
         for future in as_completed(futures):
