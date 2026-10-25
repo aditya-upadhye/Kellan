@@ -66,7 +66,7 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
   }
 }
 
-resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+resource registry 'Microsoft.ContainerRegistry/registries@2025-04-01' = {
   name: names.registry
   location: location
   sku: {
@@ -75,10 +75,26 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   properties: {
     adminUserEnabled: true
     publicNetworkAccess: 'Enabled'
+    policies: {
+      azureADAuthenticationAsArmPolicy: {
+        status: 'enabled'
+      }
+    }
   }
 }
 
-var registryPasswordSecretName = 'acr-pull-password'
+resource registryPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(registry.id, identity.id, 'registry-pull')
+  scope: registry
+  properties: {
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+    )
+  }
+}
 
 resource eventHubs 'Microsoft.EventHub/namespaces@2024-01-01' = {
   name: names.eventHubs
@@ -304,6 +320,7 @@ resource telemetryPublisher 'Microsoft.Authorization/roleAssignments@2022-04-01'
 resource api 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'api'
   location: location
+  dependsOn: [registryPull]
   tags: {
     'azd-env-name': environmentName
     'azd-service-name': 'api'
@@ -318,17 +335,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: 'Single'
-      secrets: [
-        {
-          name: registryPasswordSecretName
-          value: registry.listCredentials().passwords[0].value
-        }
-      ]
       registries: [
         {
           server: registry.properties.loginServer
-          username: registry.name
-          passwordSecretRef: registryPasswordSecretName
+          identity: identity.id
         }
       ]
       ingress: {
@@ -391,6 +401,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
 resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'web'
   location: location
+  dependsOn: [registryPull]
   tags: {
     'azd-env-name': environmentName
     'azd-service-name': 'web'
@@ -405,17 +416,10 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: 'Single'
-      secrets: [
-        {
-          name: registryPasswordSecretName
-          value: registry.listCredentials().passwords[0].value
-        }
-      ]
       registries: [
         {
           server: registry.properties.loginServer
-          username: registry.name
-          passwordSecretRef: registryPasswordSecretName
+          identity: identity.id
         }
       ]
       ingress: {

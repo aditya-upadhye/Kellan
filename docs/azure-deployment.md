@@ -30,7 +30,7 @@ These identifiers are not credentials. Do not add a client secret; the workflow 
 
 After the workflow is merged to `main`, open **Actions > Azure deployment > Run workflow** and select `main`. The workflow creates a fresh local azd environment, then runs `azd up` to provision or update the Bicep resources and deploy both services. It serializes deployment runs for the configured azd environment. Provisioning and running Azure resources can incur charges.
 
-The template enables the container registry admin account and stores its password as a secret in each Container App for image pulls. The web app receives the API ingress hostname from the deployment and uses it for its Nginx proxy; local Docker Compose continues to use `api:8000`.
+The template enables ARM-audience authentication for the container registry, grants the apps' existing user-assigned managed identity the `AcrPull` role, and configures both Container Apps to use that identity for image pulls. The registry admin account remains enabled for the existing image-publishing flow. The web app receives the API ingress hostname from the deployment and uses it for its Nginx proxy; local Docker Compose continues to use `api:8000`.
 
 The deployment identity's federated credential is restricted to the `main` branch. Pull requests and pushes do not provision Azure resources.
 
