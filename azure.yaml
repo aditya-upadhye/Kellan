@@ -10,7 +10,7 @@ services:
     project: .
     language: docker
     host: containerapp
-    resourceName: api
+    resourceName: kellan-api
     docker:
       path: ./backend/Dockerfile
       context: .
@@ -20,7 +20,7 @@ services:
     project: .
     language: docker
     host: containerapp
-    resourceName: web
+    resourceName: kellan-web
     docker:
       path: ./frontend/Dockerfile
       context: .

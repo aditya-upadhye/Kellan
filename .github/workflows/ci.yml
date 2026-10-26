@@ -13,6 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deployment-helper:
+    name: Deployment helper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m unittest discover -s .github/scripts -p test_container_apps.py
+
   backend:
     name: Backend
     runs-on: ubuntu-latest

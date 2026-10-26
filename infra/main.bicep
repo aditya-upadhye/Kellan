@@ -11,13 +11,21 @@ param cosmosLocation string = location
 @maxLength(8)
 param environmentName string = 'prod'
 
+@description('API image to retain during provisioning. The deployment workflow supplies the current image for existing apps.')
+param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
+@description('Web image to retain during provisioning. The deployment workflow supplies the current image for existing apps.')
+param webImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 var suffix = uniqueString(subscription().id, resourceGroup().id)
 var baseName = 'ml${environmentName}${suffix}'
 var names = {
   identity: '${baseName}-id'
   workspace: '${baseName}-law'
   insights: '${baseName}-appi'
-  environment: '${baseName}-aca'
+  environment: '${baseName}-standard-aca'
+  api: 'kellan-api'
+  web: 'kellan-web'
   eventHubs: '${baseName}-eh'
   cosmos: '${baseName}-cosmos'
   foundry: '${baseName}-ai'
@@ -32,11 +40,14 @@ module platform 'modules/platform.bicep' = {
     cosmosLocation: cosmosLocation
     environmentName: environmentName
     names: names
+    apiImage: apiImage
+    webImage: webImage
   }
 }
 
 output location string = location
 output identityId string = platform.outputs.identityId
+output AZURE_CONTAINER_APPS_IDENTITY_ID string = platform.outputs.identityId
 output identityPrincipalId string = platform.outputs.identityPrincipalId
 output containerAppsEnvironmentId string = platform.outputs.containerAppsEnvironmentId
 output containerRegistryName string = platform.outputs.containerRegistryName

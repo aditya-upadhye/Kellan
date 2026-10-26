@@ -46,6 +46,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Check deployment helper
+        run: python3 -m unittest discover -s .github/scripts -p test_container_apps.py
+
       - name: Install Azure Developer CLI
         uses: Azure/setup-azd@634ad924cf8baef2257898ba5663be8d19f15aca # v2.3.0
         with:
@@ -63,41 +66,14 @@ jobs:
           azd env set AZURE_COSMOS_LOCATION "$AZURE_COSMOS_LOCATION"
           azd env set AZURE_RESOURCE_GROUP "$AZURE_RESOURCE_GROUP"
 
-      - name: Provision infrastructure without cached deployment state
-        run: azd provision --environment "$AZURE_ENV_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION" --no-prompt --no-state
+      - name: Preserve deployed images for provisioning
+        run: python3 .github/scripts/container_apps.py prepare
 
-      - name: Verify Container Apps registry identities
-        shell: bash
-        run: |
-          set -euo pipefail
-          registry_server=$(azd env get-value AZURE_CONTAINER_REGISTRY_ENDPOINT --environment "$AZURE_ENV_NAME")
-          : "${registry_server:?Provisioning did not return the container registry endpoint}"
-          arm_token=$(azd auth token --scope https://management.azure.com/.default --output json | jq -er '.token | select(type == "string" and length > 0)')
-          echo "::add-mask::$arm_token"
+      - name: Provision infrastructure
+        run: azd provision --environment "$AZURE_ENV_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION" --no-prompt
 
-          for app in api web; do
-            app_url="https://management.azure.com/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.App/containerApps/${app}?api-version=2024-03-01"
-            app_json=$(curl --fail-with-body --silent --show-error \
-              --header "Authorization: Bearer $arm_token" "$app_url")
+      - name: Publish service images
+        run: azd publish --environment "$AZURE_ENV_NAME" --all --no-prompt
 
-            if ! jq -e --arg server "$registry_server" '
-              . as $app |
-              any(.properties.configuration.registries[]?;
-                .server == $server and
-                (.identity | type == "string") and
-                (.identity as $pull_identity |
-                  ($app.identity.userAssignedIdentities // {}) | has($pull_identity))
-              )
-            ' <<< "$app_json" > /dev/null; then
-              echo "::error::$app is missing a registry entry for $registry_server using an attached user-assigned identity. Image deployment has been stopped."
-              jq '{app: .name, state: .properties.provisioningState,
-                registries: .properties.configuration.registries,
-                assignedIdentityIds: ((.identity.userAssignedIdentities // {}) | keys)}' <<< "$app_json"
-              exit 1
-            fi
-
-            echo "$app: registry identity configuration verified for $registry_server"
-          done
-
-      - name: Deploy services
-        run: azd deploy --environment "$AZURE_ENV_NAME" --all --no-prompt
+      - name: Deploy images with registry identities and verify the app
+        run: python3 .github/scripts/container_apps.py deploy
