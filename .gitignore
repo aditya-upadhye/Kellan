@@ -25,6 +25,9 @@ frontend/dist/
 # Generated matches
 data/samples/
 
+# Generated demo artifacts
+/artifacts/
+
 # Azure Developer CLI
 .azure/
 
