@@ -361,6 +361,7 @@ resource api 'Microsoft.App/containerApps@2026-07-01' = {
           // Retain the deployed image during infrastructure updates; bootstrap only new apps.
           image: apiImage
           env: [
+            { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
             { name: 'LLM_MODE', value: 'foundry' }
             { name: 'TRANSPORT', value: 'eventhubs' }
             { name: 'STORE', value: 'cosmos' }

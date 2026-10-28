@@ -1,9 +1,11 @@
 # Kellan
 
-Kellan turns a synthetic football event stream into fact-checked, personalized on-screen insights. It gives producers a live story-integrity layer: each insight is grounded in event evidence, checked before publication, and revised when the match facts change.
-Code computes every number, agents write every sentence, and a Fact-Checker agent checks that they agree.
+Kellan turns a synthetic football event stream into personalized on-screen insights with inspectable evidence. Viewers can select a published numerical claim, reproduce its calculation from historical inputs, and explore the surrounding action in an interactive 3D replay.
+Deterministic code computes the metrics. Agents generate and adapt the wording, numerical verification checks claims against evidence, and checked templates provide fallback coverage when generation fails.
 
 **Show me the play behind the words.**
+
+[Live demo](https://kellan-web.grayocean-d5896b70.northcentralus.azurecontainerapps.io) | [Watch the demo video](https://youtu.be/Eyqh3Gk7IW8) | [Judge walkthrough](docs/hero-demo.md)
 
 Built for the Microsoft Premier League Hackathon (Inside the Game), Best Multi-Agent System category.
 Everything in Kellan is fictional: league, clubs, players and venues are invented.
@@ -27,7 +29,7 @@ The match engine now advances one shared player-and-ball world in bounded 50 ms 
 
 Regular tracking frames are supplemented with kick/contact frames. Near-ball players include compact subsecond position and facing paths. Historical replay uses recorded frame intervals, while orbit, zoom and evidence markings remain available. All movement is synthetic and the football rules and contact model are simplified. See [simulation design and limits](docs/shared-simulation.md).
 
-> **Status:** M1–M7 are complete; M8 Azure deployment is in progress on `m8-azure`. See [docs/CHANGELOG.md](docs/CHANGELOG.md) for progress.
+> **Deployment:** The live demo runs on Azure Container Apps. See [deployment documentation](docs/azure-deployment.md) for setup and [the changelog](docs/CHANGELOG.md) for implementation history.
 
 ## Repository layout
 
